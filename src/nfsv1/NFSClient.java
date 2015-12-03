@@ -17,7 +17,7 @@ public class NFSClient {
     private final nfsClient nfs;
     public NFSClient(String host, String mntPoint) throws IOException, OncRpcException {
         mountClient mnt = new mountClient(InetAddress.getByName(host), OncRpcProtocols.ONCRPC_UDP);
-        OncRpcClientAuth auth = new OncRpcClientAuthUnix("zaikunxu", 1000, 50);
+        OncRpcClientAuth auth = new OncRpcClientAuthUnix("zaikunxu", 500, 20);
         mnt.getClient().setAuth(auth);
         fhstatus fh = mnt.MOUNTPROC_MNT_1(new dirpath(mntPoint));
         if (fh.status == 0) {
@@ -71,29 +71,36 @@ public class NFSClient {
 
         return entries;
     }
+    
     public static void main(String[] args) throws IOException, OncRpcException {
     	NFSClient client = new NFSClient("localhost", "/exports");
         assert(client.nfs != null);
         assert(client.root != null);
-//        fhandle dir = client.getRoot();
-//        List<entry> ls = client.readDir(dir);
-//        
-//        ls.stream().forEach(e -> {
-//	        	fhandle file = client.lookup(dir, e.name); // get fhandle to get attributes below
-//	        	fattr attr = client.getAttr(file); // to get attributes	
-//	//            if (attr != null) {
-//	//                 // use attributes to differentiate, e.g. if directory or not
-//	//            }
-//	        	System.out.println(e.name.value);
-//
-//
-//        	}
-//
-//        );
-
-
-
+        fhandle dir = client.getRoot();
+        List<entry> ls = client.readDir(dir);
+        
+        ls.stream().forEach(e -> {
+	        	fhandle file = client.lookup(dir, e.name); // get fhandle to get attributes below
+	        	fattr attr = client.getAttr(file); // to get attributes	
+	            if (attr != null) {
+	                 // use attributes to differentiate, e.g. if directory or not
+	            	
+	            }
+	        	System.out.println(e.name.value);
+        	}
+        );
     }
-
-
+    
+    //	read by spliting and save
+    // if a file is missing, remove them
+    // compile java -cp lib/sss-0.1.jar:
+//    sss.join(size, ret, bbVector.toarray)())
+//    
+//    
+//    ByteBuffer inb = sss.readFile(fName);
+//    int[] ids = new int[splits];
+//    ByteBuffer[] out = new ByteBuffer[splits];
+//    	
+//    inb.rewind();
+//    sss.split(inb.capacity(), inb, minSplits, ids, out);
 }
