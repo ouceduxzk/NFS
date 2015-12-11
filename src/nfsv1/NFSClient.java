@@ -17,7 +17,7 @@ public class NFSClient {
     private final nfsClient nfs;
     public NFSClient(String host, String mntPoint) throws IOException, OncRpcException {
         mountClient mnt = new mountClient(InetAddress.getByName(host), OncRpcProtocols.ONCRPC_UDP);
-        OncRpcClientAuth auth = new OncRpcClientAuthUnix("zaikunxu", 500, 20);
+        OncRpcClientAuth auth = new OncRpcClientAuthUnix("cornelius", 502, 20);
         mnt.getClient().setAuth(auth);
         fhstatus fh = mnt.MOUNTPROC_MNT_1(new dirpath(mntPoint));
         if (fh.status == 0) {
@@ -48,6 +48,30 @@ public class NFSClient {
     public fattr getAttr(fhandle file) {
 
         return null;
+    }
+    
+    public synchronized boolean makeDir(fhandle folder, filename dirname) throws IOException, OncRpcException {
+    		diropargs where = new diropargs();
+    		where.dir = folder;
+    		where.name = dirname;
+    		
+    		sattr attributes = new sattr();
+    		attributes.uid = 502;
+    		attributes.gid = 20;
+    		attributes.size = -1;
+    		attributes.mode = 0777;
+    		timeval mtime = new timeval();
+    		mtime.seconds = (int)(System.currentTimeMillis() / 1000);
+    		mtime.useconds = 0;
+    		attributes.atime = attributes.mtime = mtime;
+    	
+    		createargs args = new createargs();
+    		args.where = where;
+    		args.attributes = attributes;
+    		
+    		diropres out = nfs.NFSPROC_MKDIR_2(args);
+    		System.out.format("Result: %d\n", out.status);
+    		return out.status == stat.NFS_OK;
     }
 
     public synchronized List<entry> readDir(fhandle folder) throws IOException, OncRpcException {
@@ -89,6 +113,13 @@ public class NFSClient {
 	        	System.out.println(e.name.value);
         	}
         );
+        
+        System.out.println("Creating directory newdir");
+        if (client.makeDir(dir, new filename("newdir"))) {
+        		System.out.println("Successfully created");
+        } else {
+        		System.out.println("Could not create");
+        }
     }
     
     //	read by spliting and save
