@@ -73,6 +73,10 @@ public class NFSClient {
     		}
         return out.diropok.file;
     }
+    
+    public fhandle lookup(fhandle dir, String name) throws IOException, OncRpcException {
+    		return lookup(dir, new filename(name));
+    }
 
 //    attrstat NFSPROC_GETATTR (fhandle)
 	//	union attrstat switch (stat status) {
@@ -129,6 +133,10 @@ public class NFSClient {
     		return out.status == stat.NFS_OK;
     }
     
+    public synchronized boolean createFile(fhandle folder, String filename) throws IOException, OncRpcException {
+    	return createFile(folder, new filename(filename));
+    }
+    
 //  removeFile stat NFSPROC_REMOVE_2
     public synchronized boolean removeFile(fhandle folder, filename filename) throws IOException, OncRpcException {
 		diropargs args = new diropargs();
@@ -141,6 +149,10 @@ public class NFSClient {
     		return status == stat.NFS_OK;
     }
     
+    public synchronized boolean removeFile(fhandle folder, String filename) throws IOException, OncRpcException {
+    		return removeFile(folder, new filename(filename));
+    }
+    
 //  readFile   NFSPROC_READ_2
     public synchronized String readFile(fhandle file) throws IOException, OncRpcException {
 		
@@ -148,9 +160,30 @@ public class NFSClient {
     		return "";
     }
     
-//  writeFile  NFSPROC_WRITE_2
+//  writeFile  
+//    struct writeargs {
+//	    fhandle file;
+//	    unsigned beginoffset;
+//	    unsigned offset;
+//	    unsigned totalcount;
+//	    nfsdata data;
+//		};
+//	attrstat
+//	NFSPROC_WRITE(writeargs) = 8;
     public synchronized boolean writeFile(fhandle file, String contents) throws IOException, OncRpcException {
-		return false;
+		writeargs args = new writeargs();
+		args.file = file;
+		args.offset = 0;
+		args.data = new nfsdata(contents.getBytes());
+		attrstat out = nfs.NFSPROC_WRITE_2(args);
+		if (out.status != stat.NFS_OK) {
+			errorMessage(out.status);
+		} 
+		return out.status == stat.NFS_OK;
+    }
+    
+    public synchronized boolean writeFile(fhandle folder, filename filename, String contents) throws IOException, OncRpcException {
+		return writeFile(lookup(folder,filename), contents);
     }
     
 //  removeDir  NFSPROC_RMDIR_2
@@ -163,6 +196,10 @@ public class NFSClient {
     	
     	errorMessage(status);
 	return status == stat.NFS_OK;
+    }
+    
+    public synchronized boolean removeDir(fhandle folder, String dirname) throws IOException, OncRpcException {
+    		return removeDir(folder, new filename(dirname));
     }
     
     public synchronized boolean makeDir(fhandle folder, filename dirname) throws IOException, OncRpcException {
@@ -187,6 +224,10 @@ public class NFSClient {
     		diropres out = nfs.NFSPROC_MKDIR_2(args);
     		errorMessage(out.status);
     		return out.status == stat.NFS_OK;
+    }
+    
+    public synchronized boolean makeDir(fhandle folder, String dirname) throws IOException, OncRpcException {
+    		return makeDir(folder, new filename(dirname));
     }
 
     public synchronized List<entry> readDir(fhandle folder) throws IOException, OncRpcException {
@@ -243,28 +284,35 @@ public class NFSClient {
         	});
         
         System.out.println("-- Removing file newfile (if it exists) ---");
-        if (client.removeFile(dir, new filename("newfile"))) {
+        if (client.removeFile(dir, "newfile")) {
         		System.out.println("Successfully removed");
         } else {
         		System.out.println("Could not remove");
         }
         
         System.out.println("--- Creating a new file newfile ---");
-        if (client.createFile(dir, new filename("newfile"))) {
+        if (client.createFile(dir, "newfile")) {
         		System.out.println("Successfully created");
     		} else {
     			System.out.println("Could not create");
     		}
         
+        System.out.println("--- Writing to file newfile ---");
+        if (client.writeFile(client.lookup(dir, "newfile"), "abcdefghijklmnopqrstuvwxyz")) {
+        		System.out.println("Successfully written to file");
+        } else {
+        		System.out.println("Writing to file failed");
+        }
+        
         System.out.println("--- Removing directory newdir (if it exists) ---");
-        if (client.removeDir(dir, new filename("newdir"))) {
+        if (client.removeDir(dir, "newdir")) {
         		System.out.println("Successfully removed");
         } else {
         		System.out.println("Could not remove");
         }
         
         System.out.println("--- Creating directory newdir ---");
-        if (client.makeDir(dir, new filename("newdir"))) {
+        if (client.makeDir(dir, "newdir")) {
         		System.out.println("Successfully created");
         } else {
         		System.out.println("Could not create");
