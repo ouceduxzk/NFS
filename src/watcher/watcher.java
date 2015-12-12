@@ -203,4 +203,14 @@ public class Watcher{
     static <T> WatchEvent<T> cast(WatchEvent<?> event) {
         return (WatchEvent<T>)event;
     }
+        public static void main(String[] args) throws IOException {
+        // parse arguments
+        String host = "localhost";
+        String localDir = "/Users/zaikunxu/Desktop/local/";
+        String remoteDir = "/exports";
+    
+        boolean recursive = true;
+        new Watcher(host, remoteDir, localDir, recursive).processEvents();
+    
+    }
 }
