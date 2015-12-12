@@ -154,10 +154,40 @@ public class NFSClient {
     }
     
 //  readFile   NFSPROC_READ_2
+//    struct readargs {
+//        fhandle file;
+//        unsigned offset;
+//        unsigned count;
+//        unsigned totalcount;
+//    };
+//    union readres switch (stat status) {
+//    		case NFS_OK:
+//    			fattr attributes;
+//    			nfsdata data;
+//    		default:
+//    			void;
+//	};
+//	readres
+//	NFSPROC_READ(readargs) = 6;
+
     public synchronized String readFile(fhandle file) throws IOException, OncRpcException {
-		
-    	
-    		return "";
+		readargs args = new readargs();
+		args.file = file;
+		args.offset = 0;
+		args.count = getAttr(file).size;
+    		readres out = nfs.NFSPROC_READ_2(args);
+    		if (out.status != stat.NFS_OK) {
+    			errorMessage(out.status);
+    		}
+    		return new String(out.read.data.value);
+    }
+    
+    public synchronized String readFile(fhandle folder, filename filename) throws IOException, OncRpcException {;
+		return readFile(lookup(folder, filename));
+    }
+    
+    public synchronized String readFile(fhandle folder, String filename) throws IOException, OncRpcException {
+    		return readFile(folder, new filename(filename));
     }
     
 //  writeFile  
@@ -303,6 +333,14 @@ public class NFSClient {
         } else {
         		System.out.println("Writing to file failed");
         }
+        
+        System.out.println("--- Reading from file newfile ---");
+        String s = client.readFile(dir, "newfile");	
+        if (!s.equals("")) {
+        		System.out.format("Successfully read from file: '%s'\n", s);
+        	} else {
+        		System.out.println("File read failed");
+        	}
         
         System.out.println("--- Removing directory newdir (if it exists) ---");
         if (client.removeDir(dir, "newdir")) {
