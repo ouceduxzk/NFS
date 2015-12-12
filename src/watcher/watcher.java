@@ -13,6 +13,11 @@ import org.acplt.oncrpc.OncRpcClientStub;
 import org.acplt.oncrpc.OncRpcException;
 import org.acplt.oncrpc.OncRpcProtocols;
 
+import client.mount.dirpath;
+import client.nfs.fhandle;
+import client.nfs.filename;
+import nfsv1.NFSClient;
+
 public class Watcher{
 	private String _address;
 	private String _remoteDir;
@@ -22,9 +27,10 @@ public class Watcher{
 	private HashMap<WatchKey, Path> _keys;
 	private boolean _recursive = true ;
 	private boolean _trace = true;
-	private NFSHelper _nfshelper;
+	private NFSClient _nfsc;
+	private String _username = "zaikunxu";
 	//private ArrayList<Watcher> _listofWatcher;
-	public Watcher(String address, String remoteDir, String localDir, boolean recursive) throws IOException{
+	public Watcher(String address, String remoteDir, String localDir, boolean recursive) throws IOException, OncRpcException{
 		_address = address;
 		_remoteDir =remoteDir;
 		_localDir = localDir;
@@ -38,7 +44,7 @@ public class Watcher{
 		
 		 //_listofWatcher = new ArrayList<Watcher>();
 		
-		_nfshelper = new NFSHelper(_address, _remoteDir, _localPath);
+		_nfsc = new NFSClient(_address, _remoteDir, 501, 20, _username);
 	
 		initRegister();
 	}
@@ -92,8 +98,9 @@ public class Watcher{
 
     /**
      * Process all events for keys queued to the watcher
+     * @throws OncRpcException 
      */
-    void processEvents() {
+    void processEvents() throws OncRpcException {
         for (;;) {
 
             // wait for key to be signalled
@@ -133,10 +140,32 @@ public class Watcher{
                         if (Files.isDirectory(child, NOFOLLOW_LINKS)) {
                             registerAll(child);
                             //############ create the directory on local
-                            _nfshelper.makeDir(_localPath,child.toString());
+                            //handle root = _nfsc.getRoot();
+                            //_nfsc.makeDir(root, new filename(child.toString()));
                         }else{
                         	// a single file
-                        	_nfshelper.createFile(_localPath, child.toString());
+                        	//fhandle root = _nfsc.getRoot();
+                        	//_nfsc.createFile(root, new filename(child.toString()));
+                        	register(child);
+                        }
+                        
+                    } catch (IOException x) {
+                        // ignore to keep sample readbale
+                    }
+                }
+                
+
+                //TODO add ENTRY_CREATE and ENTRY_DELTE
+                if(_recursive && (kind == ENTRY_DELETE)){
+                    try {
+                        if (Files.isDirectory(child, NOFOLLOW_LINKS)) {
+                            //############ create the directory on local
+                            fhandle root = _nfsc.getRoot();
+                            _nfsc.removeDir(root, new filename(child.toString()));
+                        }else{
+                        	// a single file
+                        	fhandle root = _nfsc.getRoot();
+                        	_nfsc.removeFile(root, new filename(child.toString()));
                         	
                         }
                         
@@ -145,20 +174,11 @@ public class Watcher{
                     }
                 }
                 
-                
-                
-                //TODO add ENTRY_CREATE and ENTRY_DELTE
-                if(_recursive && (kind == ENTRY_DELETE)){
-                	
-                }
-                
                 if(_recursive && (kind == ENTRY_MODIFY)){
                 	
                 }
                 
-                
-               
-                
+              
                 
             }
 
@@ -175,7 +195,11 @@ public class Watcher{
         }
     }
     
-    @SuppressWarnings("unchecked")
+    private fhandle getFileHandle(Path _localPath2, String string) {
+		// TODO Auto-generated method stub
+		return null;
+	}
+	@SuppressWarnings("unchecked")
     static <T> WatchEvent<T> cast(WatchEvent<?> event) {
         return (WatchEvent<T>)event;
     }

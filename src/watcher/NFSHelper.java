@@ -1,5 +1,4 @@
 package watcher;
-
 import java.nio.file.*;
 import java.io.*;
 import java.net.InetAddress;
@@ -14,6 +13,7 @@ import org.acplt.oncrpc.OncRpcProtocols;
 
 import client.mount.*;
 import client.nfs.*;
+
 
 /*
  * this implements 
@@ -38,6 +38,15 @@ public class NFSHelper {
 		_remoteDir = remoteDir;
 		_localPath = localPath;
 		
+		try{
+			mount();
+		}catch(UnknownHostException e){
+			e.printStackTrace();
+		}catch(OncRpcException e){
+			e.printStackTrace();
+		}catch(IOException e){
+			e.printStackTrace();
+		}
 	}
 
 	public void mount() throws UnknownHostException, OncRpcException, IOException{
@@ -53,7 +62,7 @@ public class NFSHelper {
         }catch(OncRpcException e){
         	e.printStackTrace();
         }finally{
-        	System.out.println("mounting remtoe director " + _remoteDir);
+        	System.out.println("mounting remtoe directory" + _remoteDir);
         }
         
         // check the status of fh is 0 or not 
@@ -68,6 +77,11 @@ public class NFSHelper {
         }
         
 	}
+	/*
+	 * @param Path path
+	 * @param String filename
+	 * 
+	 */
 	
 	
 	/*
@@ -90,16 +104,33 @@ public class NFSHelper {
 	 * return : a boolean value of success or not
 	 */
 	public boolean writeFile(Path path, String fn){
+		fhandle fh = getFileHandle(path, fn);
 		return false;
 		
 	}
 	
+	private fhandle getFileHandle(Path path, String fn) {
+		// TODO Auto-generated method stub
+		return null;
+	}
+
 	public boolean readFile(Path path, String fn){
 		return false;
 		
 	}
 	
 	public boolean createFile(Path path, String fn){
+		fhandle fh = getFileHandle(path, fn);
+		diropargs where = new diropargs();
+		where.dir = fh;
+		where.name = new filename(fn);
+		sattr attr = new sattr();
+		//not sure
+		attr.uid = 100;
+		attr.gid = 500;
+		attr.mode = 100;
+		attr.mtime = new timeval();
+		attr.atime = new timeval();
 		return false;
 	}
 	

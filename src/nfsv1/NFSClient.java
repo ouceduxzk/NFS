@@ -212,7 +212,7 @@ public class NFSClient {
     }
     
     public static void main(String[] args) throws IOException, OncRpcException {
-    		NFSClient client = new NFSClient("localhost", "/exports", 502, 20, "cornelius");
+    		NFSClient client = new NFSClient("192.168.0.16", "/exports", 502, 20, "cornelius");
         assert(client.nfs != null);
         assert(client.root != null);
         fhandle dir = client.getRoot();
