@@ -46,7 +46,6 @@ public class Watcher{
 		_recursive = recursive;
 
 		_nfsc = new NFSClient(_address, _remoteDir, 501, 20, _username);
-		
 	
 		initRegister();
 	}
@@ -144,17 +143,11 @@ public class Watcher{
                             //############ create the directory on server
                             ///////////////////////////////////////////
                             
-                            
-                            
-                           _nfsc.makeDir(child.toString());
-                           
-                           
-                           
-                           
-                           
-                           
-                           
-                           
+                            String[] filepath = child.toString().split("/");
+                            int len = filepath.length;
+                            System.out.println("add new " + filepath[len-1]);
+                           _nfsc.makeDir(filepath[len-1]); 
+                          
                            
                         }else{
                         	// a single file
