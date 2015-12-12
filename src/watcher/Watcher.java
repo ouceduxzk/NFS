@@ -44,13 +44,9 @@ public class Watcher{
 		_localPath = Paths.get(_localDir);
 		_keys = new HashMap<WatchKey,Path>();
 		_recursive = recursive;
-		//192.168.0.16. my ip address
-		// /Users/zaikunxu/Desktop/nfserver remote directory
-		// /exports/                        local directory
-		
-		 //_listofWatcher = new ArrayList<Watcher>();
-		
+
 		_nfsc = new NFSClient(_address, _remoteDir, 501, 20, _username);
+		
 	
 		initRegister();
 	}
@@ -135,7 +131,7 @@ public class Watcher{
                 WatchEvent<Path> ev = cast(event);
                 Path name = ev.context();
                 Path child = dir.resolve(name);
-
+                //System.out.println("debug  " + child.toString());
                 // print out event
                 System.out.format("%s: %s\n", event.kind().name(), child);
 
@@ -145,43 +141,50 @@ public class Watcher{
                     try {
                         if (Files.isDirectory(child, NOFOLLOW_LINKS)) {
                             registerAll(child);
-                            //############ create the directory on local
-                            //handle root = _nfsc.getRoot();
-                            //_nfsc.makeDir(root, new filename(child.toString()));
+                            //############ create the directory on server
+                            ///////////////////////////////////////////
+                            
+                            
+                            
+                           _nfsc.makeDir(child.toString());
+                           
+                           
+                           
+                           
+                           
+                           
+                           
+                           
+                           
                         }else{
                         	// a single file
-                        	//fhandle root = _nfsc.getRoot();
-                        	//_nfsc.createFile(root, new filename(child.toString()));
+                        	_nfsc.createFile(child.toString());
+                        	// do not know what the content is                         	
+                        	//_nfsc.writeFile(file, contents);
+                        	
                         	register(child);
                         }
                         
                     } catch (IOException x) {
                         // ignore to keep sample readbale
+                    	x.printStackTrace();
                     }
                 }
                 
 
-                //TODO add ENTRY_CREATE and ENTRY_DELTE
-                if(_recursive && (kind == ENTRY_DELETE)){
+                if(_recursive && (kind == ENTRY_MODIFY)){
                     try {
                         if (Files.isDirectory(child, NOFOLLOW_LINKS)) {
-                            //############ create the directory on local
-                            fhandle root = _nfsc.getRoot();
-                            _nfsc.removeDir(root, new filename(child.toString()));
+                           _nfsc.makeDir(child.toString());
                         }else{
-                        	// a single file
-                        	fhandle root = _nfsc.getRoot();
-                        	_nfsc.removeFile(root, new filename(child.toString()));
-                        	
+                        	//_nfsc.writeFile(child.toString());
+                        	register(child);
                         }
                         
                     } catch (IOException x) {
                         // ignore to keep sample readbale
+                    	x.printStackTrace();
                     }
-                }
-                
-                if(_recursive && (kind == ENTRY_MODIFY)){
-                	
                 }
                 
               
@@ -200,19 +203,17 @@ public class Watcher{
             }
         }
     }
+
     
-    private fhandle getFileHandle(Path _localPath2, String string) {
-		// TODO Auto-generated method stub
-		return null;
-	}
 	@SuppressWarnings("unchecked")
     static <T> WatchEvent<T> cast(WatchEvent<?> event) {
         return (WatchEvent<T>)event;
     }
-        public static void main(String[] args) throws IOException {
+   
+	public static void main(String[] args) throws IOException, OncRpcException {
         // parse arguments
         String host = "localhost";
-        String localDir = "/Users/zaikunxu/Desktop/local/";
+        String localDir = "/Users/zaikunxu/Desktop/local";
         String remoteDir = "/exports";
     
         boolean recursive = true;
