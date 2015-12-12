@@ -13,11 +13,18 @@ import org.acplt.oncrpc.OncRpcProtocols;
 import client.mount.*;
 import client.nfs.*;
 public class NFSClient {
+	private final int uid;
+	private final int gid;
+	private final String username;
     private final fhandle root;
     private final nfsClient nfs;
-    public NFSClient(String host, String mntPoint) throws IOException, OncRpcException {
+  
+    public NFSClient(String host, String mntPoint, int uid, int gid, String username) throws IOException, OncRpcException {
+    		this.uid = uid;
+    		this.gid = gid;
+    		this.username = username;
         mountClient mnt = new mountClient(InetAddress.getByName(host), OncRpcProtocols.ONCRPC_UDP);
-        OncRpcClientAuth auth = new OncRpcClientAuthUnix("cornelius", 502, 20);
+        OncRpcClientAuth auth = new OncRpcClientAuthUnix(username, uid, gid);
         mnt.getClient().setAuth(auth);
         fhstatus fh = mnt.MOUNTPROC_MNT_1(new dirpath(mntPoint));
         if (fh.status == 0) {
@@ -71,8 +78,8 @@ public class NFSClient {
     		where.dir = folder;
     		where.name = filename;
     		sattr attributes = new sattr();
-    		attributes.uid = 502;
-    		attributes.gid = 20;
+    		attributes.uid = uid;
+    		attributes.gid = gid;
     		attributes.size = -1;
     		attributes.mode = 0777; // rw- rw- rw-
     		timeval now = new timeval();
@@ -103,7 +110,7 @@ public class NFSClient {
     
 //  readFile   NFSPROC_READ_2
     public synchronized String readFile(fhandle file) throws IOException, OncRpcException {
-		return false;
+		return "";
     }
     
 //  writeFile  NFSPROC_WRITE_2
@@ -129,8 +136,8 @@ public class NFSClient {
     		where.name = dirname;
     		
     		sattr attributes = new sattr();
-    		attributes.uid = 502;
-    		attributes.gid = 20;
+    		attributes.uid = uid;
+    		attributes.gid = gid;
     		attributes.size = -1;
     		attributes.mode = 0777;
     		timeval mtime = new timeval();
@@ -170,7 +177,7 @@ public class NFSClient {
     }
     
     public static void main(String[] args) throws IOException, OncRpcException {
-    		NFSClient client = new NFSClient("localhost", "/exports");
+    		NFSClient client = new NFSClient("localhost", "/exports", 502, 20, "cornelius");
         assert(client.nfs != null);
         assert(client.root != null);
         fhandle dir = client.getRoot();
