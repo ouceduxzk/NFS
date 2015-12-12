@@ -77,6 +77,40 @@ public class NFSClient {
     public fhandle lookup(fhandle dir, String name) throws IOException, OncRpcException {
     		return lookup(dir, new filename(name));
     }
+    
+    public fhandle lookup(String path) throws IOException, OncRpcException {
+    		assert (path.indexOf(0) == '/'); // path must start with '/'
+    		String [] parts = path.split("/");
+    		fhandle dir = root;
+    		for (int i = 1; i<parts.length; i++) {
+    			dir = lookup(dir, parts[i]);
+    		}
+    		return dir;
+    }
+    
+    public class Parts {
+    		public final fhandle dir;
+    		public final filename name;
+    		public Parts(fhandle dir, filename file) {
+    			this.dir = dir;
+    			this.name = file;
+    		}
+    		public Parts(fhandle dir, String file) {
+    			this.dir = dir;
+    			this.name = new filename(file);
+    		}
+    }
+    
+    public Parts lookup_parts(String path) throws IOException, OncRpcException {
+    		assert (path.indexOf(0) == '/'); // path must start with '/'
+		String [] parts = path.split("/");
+		fhandle dir = root;
+		int i = 1;
+		for (; i<parts.length-1; i++) {
+			dir = lookup(dir, parts[i]);
+		}
+		return new Parts(dir, parts[i]);	
+    }
 
 //    attrstat NFSPROC_GETATTR (fhandle)
 	//	union attrstat switch (stat status) {
@@ -92,6 +126,53 @@ public class NFSClient {
 			errorMessage(out.status);
     		}
         return out.attributes;
+    }
+    
+
+//    struct sattrargs {
+//            fhandle file;
+//            sattr attributes;
+//    	};
+//    attrstat
+//    NFSPROC_SETATTR (sattrargs)
+    public synchronized boolean setAttr(fhandle file, sattr attributes) throws IOException, OncRpcException {
+    		sattrargs args = new sattrargs();
+    		args.file = file;
+    		args.attributes = attributes;
+    		attrstat out = nfs.NFSPROC_SETATTR_2(args);
+    		if (out.status != stat.NFS_OK) {
+    			errorMessage(out.status);
+    		}
+    		return out.status == stat.NFS_OK;
+    }
+    
+    public synchronized boolean setAttr(fhandle file, Integer uid, Integer gid, Integer mode, timeval atime, timeval mtime) throws IOException, OncRpcException {
+    		fattr old_attributes = getAttr(file);
+    		sattr new_attributes = new sattr();
+    		new_attributes.uid   = old_attributes.uid;
+    		new_attributes.gid   = old_attributes.gid;
+    		new_attributes.size  = old_attributes.size;
+    		new_attributes.atime = old_attributes.atime;
+    		new_attributes.mtime = old_attributes.mtime;
+    		new_attributes.mode  = old_attributes.mode;
+    		
+    		if (uid != null) {
+    			new_attributes.uid = uid;
+    		}
+    		if (gid != null) {
+    			new_attributes.gid = gid;
+    		}
+    		if (mode != null) {
+    			new_attributes.mode = mode;
+    		}
+    		if (atime != null) {
+    			new_attributes.atime = atime;
+    		}
+    		if (mtime != null) {
+    			new_attributes.mtime = mtime;
+    		}
+    		
+    		return setAttr(file, new_attributes);
     }
     
     public synchronized void errorMessage(int status) {
@@ -137,6 +218,11 @@ public class NFSClient {
     	return createFile(folder, new filename(filename));
     }
     
+    public synchronized boolean createFile(String path) throws IOException, OncRpcException {
+    		Parts p = lookup_parts(path);
+    		return createFile(p.dir, p.name);
+    }
+    
 //  removeFile stat NFSPROC_REMOVE_2
     public synchronized boolean removeFile(fhandle folder, filename filename) throws IOException, OncRpcException {
 		diropargs args = new diropargs();
@@ -151,6 +237,11 @@ public class NFSClient {
     
     public synchronized boolean removeFile(fhandle folder, String filename) throws IOException, OncRpcException {
     		return removeFile(folder, new filename(filename));
+    }
+    
+    public synchronized boolean removeFile(String path) throws IOException, OncRpcException {
+		Parts p = lookup_parts(path);
+    		return removeFile(p.dir, p.name);
     }
     
 //  readFile   NFSPROC_READ_2
@@ -190,6 +281,10 @@ public class NFSClient {
     		return readFile(folder, new filename(filename));
     }
     
+    public synchronized String readFile(String path) throws IOException, OncRpcException {
+		return readFile(lookup(path));
+    }
+    
 //  writeFile  
 //    struct writeargs {
 //	    fhandle file;
@@ -216,6 +311,11 @@ public class NFSClient {
 		return writeFile(lookup(folder,filename), contents);
     }
     
+    public synchronized boolean writeFile(String path, String contents) throws IOException, OncRpcException {
+		Parts p = lookup_parts(path);
+    		return writeFile(p.dir, p.name, contents);
+    }
+    
 //  removeDir  NFSPROC_RMDIR_2
     public synchronized boolean removeDir(fhandle folder, filename dirname) throws IOException, OncRpcException {
     	diropargs args = new diropargs();
@@ -230,6 +330,11 @@ public class NFSClient {
     
     public synchronized boolean removeDir(fhandle folder, String dirname) throws IOException, OncRpcException {
     		return removeDir(folder, new filename(dirname));
+    }
+    
+    public synchronized boolean removeDir(String path) throws IOException, OncRpcException {
+		Parts p = lookup_parts(path);
+    		return removeDir(p.dir, p.name);
     }
     
     public synchronized boolean makeDir(fhandle folder, filename dirname) throws IOException, OncRpcException {
@@ -259,6 +364,11 @@ public class NFSClient {
     public synchronized boolean makeDir(fhandle folder, String dirname) throws IOException, OncRpcException {
     		return makeDir(folder, new filename(dirname));
     }
+    
+    public synchronized boolean makeDir(String path) throws IOException, OncRpcException {
+    		Parts p = lookup_parts(path);
+    		return makeDir(p.dir, p.name);
+    }
 
     public synchronized List<entry> readDir(fhandle folder) throws IOException, OncRpcException {
         List<entry> entries = new ArrayList<entry>();
@@ -281,6 +391,8 @@ public class NFSClient {
 
         return entries;
     }
+    
+    
     
     public static void main(String[] args) throws IOException, OncRpcException {
     		NFSClient client = new NFSClient("localhost", "/exports", 502, 20, "cornelius");
@@ -355,6 +467,17 @@ public class NFSClient {
         } else {
         		System.out.println("Could not create");
         }
+        
+        String path = "/a/b/c/d";
+        System.out.format("--- Creating directory from path: %s ---\n", path);
+        	
+    		client.makeDir("/a");
+    		client.makeDir("/a/b");
+    		client.makeDir("/a/b/c");
+        	client.makeDir("/a/b/c/d");
+        client.createFile("/a/b/c/d/e");
+        	client.writeFile("/a/b/c/d/e", "12345");
+        client.readFile("/a/b/c/d/e").equals("12345");
     }
     
     //	read by spliting and save
