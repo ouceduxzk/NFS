@@ -33,10 +33,9 @@ public class Watcher{
 		_keys = new HashMap<WatchKey,Path>();
 		_recursive = recursive;
 		//192.168.0.16. my ip address
-		// /Users/zaikunxu/Desktop/nfserver remote directory
-		// /exports/                        local directory
-		
-		 //_listofWatcher = new ArrayList<Watcher>();
+		// /Users/zaikunxu/Desktop/local local directory
+		// /exports/                        remote directory
+	
 		
 		_nfshelper = new NFSHelper(_address, _remoteDir, _localPath);
 	
@@ -179,4 +178,21 @@ public class Watcher{
     static <T> WatchEvent<T> cast(WatchEvent<?> event) {
         return (WatchEvent<T>)event;
     }
+    
+    static void usage() {
+        System.err.println("usage: java WatchDir [-r] dir");
+        System.exit(-1);
+    }
+    
+    public static void main(String[] args) throws IOException {
+        // parse arguments
+        String host = "localhost";
+        String localDir = "/Users/zaikunxu/Desktop/local/";
+        String remoteDir = "/exports";
+    
+        boolean recursive = true;
+        new Watcher(host, remoteDir, localDir, recursive).processEvents();
+    
+    }
+    
 }
