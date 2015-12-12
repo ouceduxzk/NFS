@@ -50,6 +50,32 @@ public class NFSClient {
         return null;
     }
     
+
+//  createFile NFSPROC_CREATE_2
+    public synchronized boolean createFile(fhandle folder, filename filename) throws IOException, OncRpcException {
+		return false;
+    }
+    
+//  removeFile NFSPROC_REMOVE_2
+    public synchronized boolean removeFile(fhandle file) throws IOException, OncRpcException {
+		return false;
+    }
+    
+//  readFile   NFSPROC_READ_2
+    public synchronized String readFile(fhandle file) throws IOException, OncRpcException {
+		return false;
+    }
+    
+//  writeFile  NFSPROC_WRITE_2
+    public synchronized boolean writeFile(fhandle file, String contents) throws IOException, OncRpcException {
+		return false;
+    }
+    
+//  removeDir  NFSPROC_RMDIR_2
+    public synchronized boolean removeDir(fhandle folder) throws IOException, OncRpcException {
+    		return false;
+    }
+    
     public synchronized boolean makeDir(fhandle folder, filename dirname) throws IOException, OncRpcException {
     		diropargs where = new diropargs();
     		where.dir = folder;
@@ -70,7 +96,14 @@ public class NFSClient {
     		args.attributes = attributes;
     		
     		diropres out = nfs.NFSPROC_MKDIR_2(args);
-    		System.out.format("Result: %d\n", out.status);
+    		switch (out.status) {
+    		case stat.NFSERR_PERM:
+    			System.out.println("Bad permissions.");
+    		case stat.NFSERR_EXIST:
+    			System.out.println("Directory already exists.");
+    		default:
+    			System.out.format("Other error: %d\n", out.status);
+    		}
     		return out.status == stat.NFS_OK;
     }
 
@@ -97,12 +130,13 @@ public class NFSClient {
     }
     
     public static void main(String[] args) throws IOException, OncRpcException {
-    	NFSClient client = new NFSClient("localhost", "/exports");
+    		NFSClient client = new NFSClient("localhost", "/exports");
         assert(client.nfs != null);
         assert(client.root != null);
         fhandle dir = client.getRoot();
         List<entry> ls = client.readDir(dir);
         
+        System.out.println("--- Listing contents of root directory ---");
         ls.stream().forEach(e -> {
 	        	fhandle file = client.lookup(dir, e.name); // get fhandle to get attributes below
 	        	fattr attr = client.getAttr(file); // to get attributes	
@@ -114,7 +148,9 @@ public class NFSClient {
         	}
         );
         
-        System.out.println("Creating directory newdir");
+        System.out.println("--- Removing directory newdir (if it exists) ---");
+        
+        System.out.println("--- Creating directory newdir ---");
         if (client.makeDir(dir, new filename("newdir"))) {
         		System.out.println("Successfully created");
         } else {
@@ -125,13 +161,13 @@ public class NFSClient {
     //	read by spliting and save
     // if a file is missing, remove them
     // compile java -cp lib/sss-0.1.jar:
-//    sss.join(size, ret, bbVector.toarray)())
-//    
-//    
-//    ByteBuffer inb = sss.readFile(fName);
-//    int[] ids = new int[splits];
-//    ByteBuffer[] out = new ByteBuffer[splits];
-//    	
-//    inb.rewind();
-//    sss.split(inb.capacity(), inb, minSplits, ids, out);
+	//    sss.join(size, ret, bbVector.toarray)())
+	//    
+	//    
+	//    ByteBuffer inb = sss.readFile(fName);
+	//    int[] ids = new int[splits];
+	//    ByteBuffer[] out = new ByteBuffer[splits];
+	//    	
+	//    inb.rewind();
+	//    sss.split(inb.capacity(), inb, minSplits, ids, out);
 }
