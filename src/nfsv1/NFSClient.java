@@ -50,15 +50,55 @@ public class NFSClient {
         return null;
     }
     
+    public synchronized void errorMessage(int status) {
+	    	switch (status) {
+			case stat.NFS_OK:
+				break;
+			case stat.NFSERR_PERM:
+				System.out.println("Bad permissions.");
+				break;
+			case stat.NFSERR_EXIST:
+				System.out.println("Directory already exists.");
+				break;
+			default:
+				System.out.format("Other error: %d\n", status);
+	    	}
+    }
 
 //  createFile NFSPROC_CREATE_2
     public synchronized boolean createFile(fhandle folder, filename filename) throws IOException, OncRpcException {
-		return false;
+    		diropargs where = new diropargs();
+    		where.dir = folder;
+    		where.name = filename;
+    		sattr attributes = new sattr();
+    		attributes.uid = 502;
+    		attributes.gid = 20;
+    		attributes.size = -1;
+    		attributes.mode = 0777; // rw- rw- rw-
+    		timeval now = new timeval();
+    		now.seconds = (int)(System.currentTimeMillis() / 1000);
+    		now.useconds = 0;
+    		attributes.atime = attributes.mtime = now;
+    		
+    		createargs args = new createargs();
+		args.where = where;
+		args.attributes = attributes;
+		
+		diropres out = nfs.NFSPROC_CREATE_2(args);
+		errorMessage(out.status);
+    		return out.status == stat.NFS_OK;
     }
     
-//  removeFile NFSPROC_REMOVE_2
-    public synchronized boolean removeFile(fhandle file) throws IOException, OncRpcException {
-		return false;
+//  removeFile stat NFSPROC_REMOVE_2
+    public synchronized boolean removeFile(fhandle folder, filename filename) throws IOException, OncRpcException {
+		diropargs args = new diropargs();
+		args.dir = folder;
+		args.name = filename;
+		
+		int status = nfs.NFSPROC_REMOVE_2(args);
+		
+		errorMessage(status);
+    		return status == stat.NFS_OK;
     }
     
 //  readFile   NFSPROC_READ_2
@@ -72,8 +112,15 @@ public class NFSClient {
     }
     
 //  removeDir  NFSPROC_RMDIR_2
-    public synchronized boolean removeDir(fhandle folder) throws IOException, OncRpcException {
-    		return false;
+    public synchronized boolean removeDir(fhandle folder, filename dirname) throws IOException, OncRpcException {
+    	diropargs args = new diropargs();
+    	args.dir = folder;
+    	args.name = dirname;
+    	
+    	int status = nfs.NFSPROC_RMDIR_2(args);	
+    	
+    	errorMessage(status);
+	return status == stat.NFS_OK;
     }
     
     public synchronized boolean makeDir(fhandle folder, filename dirname) throws IOException, OncRpcException {
@@ -96,14 +143,7 @@ public class NFSClient {
     		args.attributes = attributes;
     		
     		diropres out = nfs.NFSPROC_MKDIR_2(args);
-    		switch (out.status) {
-    		case stat.NFSERR_PERM:
-    			System.out.println("Bad permissions.");
-    		case stat.NFSERR_EXIST:
-    			System.out.println("Directory already exists.");
-    		default:
-    			System.out.format("Other error: %d\n", out.status);
-    		}
+    		errorMessage(out.status);
     		return out.status == stat.NFS_OK;
     }
 
@@ -145,10 +185,29 @@ public class NFSClient {
 	            	
 	            }
 	        	System.out.println(e.name.value);
-        	}
+        		}
         );
         
+        System.out.println("-- Removing file newfile (if it exists) ---");
+        if (client.removeFile(dir, new filename("newfile"))) {
+        		System.out.println("Successfully removed");
+        } else {
+        		System.out.println("Could not remove");
+        }
+        
+        System.out.println("--- Creating a new file newfile ---");
+        if (client.createFile(dir, new filename("newfile"))) {
+        		System.out.println("Successfully created");
+    		} else {
+    			System.out.println("Could not create");
+    		}
+        
         System.out.println("--- Removing directory newdir (if it exists) ---");
+        if (client.removeDir(dir, new filename("newdir"))) {
+        		System.out.println("Successfully removed");
+        } else {
+        		System.out.println("Could not remove");
+        }
         
         System.out.println("--- Creating directory newdir ---");
         if (client.makeDir(dir, new filename("newdir"))) {
