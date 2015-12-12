@@ -12,6 +12,7 @@ import org.acplt.oncrpc.OncRpcProtocols;
 
 import client.mount.*;
 import client.nfs.*;
+
 public class NFSClient {
 	private final int uid;
 	private final int gid;
@@ -46,15 +47,47 @@ public class NFSClient {
         return nfs;
     }
 
-    public fhandle lookup(fhandle dir, filename name) {
-
-        return null;
-
+//    diropres NFSPROC_LOOKUP(diropargs)
+//    union diropres switch (stat status) {
+//    case NFS_OK:
+//        struct {
+//            fhandle file;
+//            fattr   attributes;
+//        } diropok;
+//    default:
+//        void;
+//	  };
+//    diropargs
+//    struct diropargs {
+//        fhandle  dir;
+//        filename name;
+//    };
+    public fhandle lookup(fhandle dir, filename name) throws IOException, OncRpcException {
+    		diropargs args = new diropargs();
+    		args.dir = dir;
+    		args.name = name;
+    		diropres out = nfs.NFSPROC_LOOKUP_2(args);
+    		if (out.status != stat.NFS_OK) {
+    			errorMessage(out.status);
+    			return null;
+    		}
+        return out.diropok.file;
     }
 
-    public fattr getAttr(fhandle file) {
+//    attrstat NFSPROC_GETATTR (fhandle)
+	//	union attrstat switch (stat status) {
+	//    case NFS_OK:
+	//    		fattr attributes;
+	//    default:
+	//    		void; 
+	//    	};
 
-        return null;
+    public fattr getAttr(fhandle file) throws IOException, OncRpcException {
+    		attrstat out = nfs.NFSPROC_GETATTR_2(file);
+    		if (out.status != stat.NFS_OK) {
+			errorMessage(out.status);
+    		}
+        return out.attributes;
     }
     
     public synchronized void errorMessage(int status) {
@@ -110,7 +143,9 @@ public class NFSClient {
     
 //  readFile   NFSPROC_READ_2
     public synchronized String readFile(fhandle file) throws IOException, OncRpcException {
-		return "";
+		
+    	
+    		return "";
     }
     
 //  writeFile  NFSPROC_WRITE_2
@@ -185,15 +220,27 @@ public class NFSClient {
         
         System.out.println("--- Listing contents of root directory ---");
         ls.stream().forEach(e -> {
-	        	fhandle file = client.lookup(dir, e.name); // get fhandle to get attributes below
-	        	fattr attr = client.getAttr(file); // to get attributes	
-	            if (attr != null) {
-	                 // use attributes to differentiate, e.g. if directory or not
-	            	
-	            }
-	        	System.out.println(e.name.value);
-        		}
-        );
+	        	try {
+	        		if (e.name.value.equals("..")) return;
+		        	fhandle file = client.lookup(dir, e.name); // get fhandle to get attributes below
+		        	if (file == null) return;
+		        	fattr attr = client.getAttr(file); // to get attributes
+		        	if (attr == null) return;
+		            switch (attr.type) {
+		                 // use attributes to differentiate, e.g. if directory or not
+		            		case ftype.NFREG:
+		            			System.out.println(e.name.value);
+		            			break;
+		            		case ftype.NFDIR:
+		            			System.out.format("%s/\n", e.name.value);
+		            			break;
+		            		default:
+		            			System.out.println(e.name.value);
+		            }
+	        	} catch (IOException | OncRpcException ex) {
+	        		
+	        	}
+        	});
         
         System.out.println("-- Removing file newfile (if it exists) ---");
         if (client.removeFile(dir, new filename("newfile"))) {
