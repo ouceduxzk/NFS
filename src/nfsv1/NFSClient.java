@@ -128,6 +128,14 @@ public class NFSClient {
         return out.attributes;
     }
     
+    public fattr getAttr(fhandle folder, filename filename) throws IOException, OncRpcException {
+    		return getAttr(lookup(folder, filename));
+    }
+
+    public fattr getAttr(fhandle folder, String filename) throws IOException, OncRpcException {
+    		return getAttr(lookup(folder, filename));
+    }
+    
 
 //    struct sattrargs {
 //            fhandle file;
@@ -244,6 +252,30 @@ public class NFSClient {
     		return removeFile(p.dir, p.name);
     }
     
+    public synchronized boolean removeFiles(fhandle folder, filename name) throws IOException, OncRpcException {
+    		fattr attributes = getAttr(folder, name);
+    		if (attributes.type != ftype.NFDIR) {
+    			removeFile(folder, name);
+    			return true;
+    		} else {
+    			List<entry> ls = readDir(folder, name);
+			for (entry e: ls) {
+				if (e.name.value.equals(".") || e.name.value.equals("..")) {
+					continue;
+				} else {
+					removeFiles(lookup(folder, name), e.name);
+				}
+			}
+			removeDir(folder,name);
+    		}
+    		return true;
+    }
+    
+    public synchronized boolean removeFiles(String path) throws IOException, OncRpcException {
+    		Parts parts = lookup_parts(path);
+    		return removeFiles(parts.dir, parts.name);
+    }
+    
 //  readFile   NFSPROC_READ_2
 //    struct readargs {
 //        fhandle file;
@@ -295,11 +327,11 @@ public class NFSClient {
 //		};
 //	attrstat
 //	NFSPROC_WRITE(writeargs) = 8;
-    public synchronized boolean writeFile(fhandle file, String contents) throws IOException, OncRpcException {
+    public synchronized boolean writeFile(fhandle file, byte [] contents) throws IOException, OncRpcException {
 		writeargs args = new writeargs();
 		args.file = file;
 		args.offset = 0;
-		args.data = new nfsdata(contents.getBytes());
+		args.data = new nfsdata(contents);
 		attrstat out = nfs.NFSPROC_WRITE_2(args);
 		if (out.status != stat.NFS_OK) {
 			errorMessage(out.status);
@@ -308,13 +340,19 @@ public class NFSClient {
     }
     
     public synchronized boolean writeFile(fhandle folder, filename filename, String contents) throws IOException, OncRpcException {
-		return writeFile(lookup(folder,filename), contents);
+		return writeFile(lookup(folder,filename), contents.getBytes());
+    }
+    
+    public synchronized boolean writeFile(fhandle file, String contents) throws IOException, OncRpcException {
+		return writeFile(file, contents.getBytes());
     }
     
     public synchronized boolean writeFile(String path, String contents) throws IOException, OncRpcException {
 		Parts p = lookup_parts(path);
     		return writeFile(p.dir, p.name, contents);
     }
+    
+    
     
 //  removeDir  NFSPROC_RMDIR_2
     public synchronized boolean removeDir(fhandle folder, filename dirname) throws IOException, OncRpcException {
@@ -419,6 +457,10 @@ public class NFSClient {
         return entries;
     }
     
+    public synchronized List<entry> readDir(fhandle folder, filename filename) throws IOException, OncRpcException {
+    		return readDir(lookup(folder, filename));
+    }
+    
     public static void main(String[] args) throws IOException, OncRpcException {
     		NFSClient client = new NFSClient("localhost", "/exports", 502, 20, "cornelius");
         assert(client.nfs != null);
@@ -499,15 +541,16 @@ public class NFSClient {
 		client.makeDir("/a");
 		client.makeDir("/a/b");
 		client.makeDir("/a/b/c");
-    	client.makeDir("/a/b/c/d");
-    	client.createFile("/a/b/c/d/e");
-    	client.writeFile("/a/b/c/d/e", "12345");
-    	client.readFile("/a/b/c/d/e").equals("12345");
+	    	client.makeDir("/a/b/c/d");
+	    	client.createFile("/a/b/c/d/e");
+	    	client.writeFile("/a/b/c/d/e", "12345");
+	    	client.readFile("/a/b/c/d/e").equals("12345");
         	
         client.makeDirs("/a/b/c/d/f/g");
         client.createFile("/a/b/c/d/f/g/h");
         client.writeFile("/a/b/c/d/f/g/h", "123abc");
         System.out.format("Contents: %s\n", client.readFile("/a/b/c/d/f/g/h"));
+        client.removeFiles("/a");
     }
     
     //	read by spliting and save
