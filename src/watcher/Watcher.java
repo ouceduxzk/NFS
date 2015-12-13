@@ -5,6 +5,9 @@ import static java.nio.file.StandardWatchEventKinds.ENTRY_DELETE;
 import static java.nio.file.StandardWatchEventKinds.ENTRY_MODIFY;
 import static java.nio.file.StandardWatchEventKinds.OVERFLOW;
 
+import java.io.BufferedReader;
+import java.io.File;
+import java.io.FileReader;
 import java.io.IOException;
 import java.nio.file.FileSystems;
 import java.nio.file.FileVisitResult;
@@ -16,13 +19,16 @@ import java.nio.file.WatchEvent;
 import java.nio.file.WatchKey;
 import java.nio.file.WatchService;
 import java.nio.file.attribute.BasicFileAttributes;
+import java.util.Arrays;
 import java.util.HashMap;
+import java.util.Scanner;
 
 import org.acplt.oncrpc.OncRpcException;
 
 import client.nfs.fhandle;
 import client.nfs.filename;
 import nfsv1.NFSClient;
+import nfsv1.NFSClient.Parts;
 
 public class Watcher{
 	private String _address;
@@ -66,6 +72,7 @@ public class Watcher{
      * Register the given directory with the WatchService
      */
     private void register(Path dir) throws IOException {
+    	System.out.println(dir);
         WatchKey key = dir.register(_watcher, ENTRY_CREATE, ENTRY_DELETE, ENTRY_MODIFY);
         if (_trace) {
             Path prev = _keys.get(key);
@@ -142,20 +149,18 @@ public class Watcher{
                             registerAll(child);
                             //############ create the directory on server
                             ///////////////////////////////////////////
-                            
-                            String[] filepath = child.toString().split("/");
-                            int len = filepath.length;
-                            System.out.println("add new " + filepath[len-1]);
-                           _nfsc.makeDir(filepath[len-1]); 
+                            //String[] fhs = child.toString().split("/");
+                            //int len = fhs.length;
+                            //System.out.println(fhs[len-1]);
+                            _nfsc.makeDirs(child.toString()); 
                           
-                           
                         }else{
                         	// a single file
                         	_nfsc.createFile(child.toString());
-                        	// do not know what the content is                         	
-                        	//_nfsc.writeFile(file, contents);
+                        	String contents = readFile(child.toString());
+                        	boolean w = _nfsc.writeFile(child.toString(), contents);
+                        	if(w) { System.out.println("file " + child.toString() +  " created successfully") ;}   	
                         	
-                        	register(child);
                         }
                         
                     } catch (IOException x) {
@@ -164,14 +169,17 @@ public class Watcher{
                     }
                 }
                 
-
                 if(_recursive && (kind == ENTRY_MODIFY)){
                     try {
                         if (Files.isDirectory(child, NOFOLLOW_LINKS)) {
                            _nfsc.makeDir(child.toString());
+                           //Parts tmp = _nfsc.lookup_parts(child.toString());
+                           //filename newname = new filename( child.toString() );
+                           //_nfsc.renameDir(tmp, newname, child.toString());
                         }else{
-                        	//_nfsc.writeFile(child.toString());
-                        	register(child);
+                        	String contents = readFile(child.toString());
+                        	boolean w = _nfsc.writeFile(child.toString(), contents);
+                        	if(w) { System.out.println("file " + child.toString() +  " modified successfully") ;}   	
                         }
                         
                     } catch (IOException x) {
@@ -179,8 +187,6 @@ public class Watcher{
                     	x.printStackTrace();
                     }
                 }
-                
-              
                 
             }
 
@@ -203,6 +209,24 @@ public class Watcher{
         return (WatchEvent<T>)event;
     }
    
+	String readFile(String fileName) throws IOException {
+	    BufferedReader br = new BufferedReader(new FileReader(fileName));
+	    try {
+	        StringBuilder sb = new StringBuilder();
+	        String line = br.readLine();
+
+	        while (line != null) {
+	            sb.append(line);
+	            line = br.readLine();
+	            if(line != null) sb.append("\n");
+	        }
+	        //if(sb.length() > 1) sb.setLength(sb.length() - 1);
+	        return sb.toString();
+	    } finally {
+	        br.close();
+	    }
+	}
+	
 	public static void main(String[] args) throws IOException, OncRpcException {
         // parse arguments
         String host = "localhost";

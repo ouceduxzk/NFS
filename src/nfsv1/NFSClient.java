@@ -370,6 +370,33 @@ public class NFSClient {
     		System.out.println(p.name);
     		return makeDir(p.dir, p.name);
     }
+    
+    public synchronized boolean makeDirs(String dirpath) throws IOException, OncRpcException {
+    	assert dirpath.indexOf(0) == '/'; // can only give absolute path
+    	String[] parts = dirpath.split("/");
+    	
+    	fhandle dir = root;
+    	for (int i = 1; i < parts.length; ++i) {
+    		fhandle subdir = lookup(dir, parts[i]);
+    		if (subdir != null) {
+	    		fattr attributes = getAttr(subdir);
+	    		if (attributes.type != ftype.NFDIR) {
+	    			System.out.format("Already exists but is not a directory %s\n", parts[i]);
+	    			return false;
+	    		}
+    		} else {
+    			if (!makeDir(dir, parts[i])) {
+    				return false;
+    			}
+    			subdir = lookup(dir, parts[i]);
+    			if (subdir == null) {
+    				return false;
+    			}
+    		}
+    		dir = subdir;
+    	}
+    	return true;
+    }
 
     public synchronized List<entry> readDir(fhandle folder) throws IOException, OncRpcException {
         List<entry> entries = new ArrayList<entry>();
@@ -392,8 +419,6 @@ public class NFSClient {
 
         return entries;
     }
-    
-    
     
     public static void main(String[] args) throws IOException, OncRpcException {
     		NFSClient client = new NFSClient("localhost", "/exports", 502, 20, "cornelius");
@@ -472,13 +497,18 @@ public class NFSClient {
         String path = "/a/b/c/d";
         System.out.format("--- Creating directory from path: %s ---\n", path);
         	
-    		client.makeDir("/a");
-    		client.makeDir("/a/b");
-    		client.makeDir("/a/b/c");
-        	client.makeDir("/a/b/c/d");
-        client.createFile("/a/b/c/d/e");
-        	client.writeFile("/a/b/c/d/e", "12345");
-        client.readFile("/a/b/c/d/e").equals("12345");
+		client.makeDir("/a");
+		client.makeDir("/a/b");
+		client.makeDir("/a/b/c");
+    	client.makeDir("/a/b/c/d");
+    	client.createFile("/a/b/c/d/e");
+    	client.writeFile("/a/b/c/d/e", "12345");
+    	client.readFile("/a/b/c/d/e").equals("12345");
+        	
+        client.makeDirs("/a/b/c/d/f/g");
+        client.createFile("/a/b/c/d/f/g/h");
+        client.writeFile("/a/b/c/d/f/g/h", "123abc");
+        System.out.format("Contents: %s\n", client.readFile("/a/b/c/d/f/g/h"));
     }
     
     //	read by spliting and save

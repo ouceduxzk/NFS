@@ -13,36 +13,36 @@ import org.acplt.oncrpc.OncRpcProtocols;
 
 import client.mount.*;
 import client.nfs.*;
+import nfsv1.NFSClient;
+
 
 /*
- * this implements 
-
-		1.c :
-			i.   Create, read, and navigate folders
-			ii.  Read and set attributes
-			iii. Create, read and write files
+ *  1.d restore  on demand.
+ *  read files from server and write them locally
  */
 
 public class NFSHelper {
-	private String _hostAddr;
-	private String _remoteDir;
-	private String _localPath;
-	private nfsClient _nfsc;
-	private mountClient _mnc;
-	public NFSHelper(String hostAddr, String remoteDir, String localPath) {
+//	private String _address;
+//	private String _remoteDir;
+	//private String _localPath;
+	private NFSClient _nfsc;
+	public NFSHelper(NFSClient nfsc) throws IOException, OncRpcException {
 		// TODO Auto-generated constructor stub
-		_hostAddr = hostAddr;
-		_remoteDir = remoteDir;
-		_localPath = localPath;
-		
+		//_localPath = localPath;
+		_nfsc = nfsc;
 	}
 
-	
-	/*
-	 *  1.d restore the server on demand.
-	 *  read files from server and write them locally
-	 */
-	public boolean restore(Path remotePath, Path localPath, String fn ){
-		return false;
+	private void writeLocal(String localDir, String content, String fn) throws IOException {
+		String joinedPath = new File(localDir, fn).toString();
+		PrintWriter out = new PrintWriter(joinedPath);
+		out.write(content);
+		out.close();
 	}
+	
+	public void restore(String localDir, String fn ) throws IOException, OncRpcException{
+		String content = _nfsc.readFile(fn);
+		writeLocal(localDir, content, fn);
+	}
+	
+	
 }
