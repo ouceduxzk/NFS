@@ -39,6 +39,10 @@ public class NFSHelper {
 		out.close();
 	}
 	
+	public boolean serverUpdated(){
+		return false;
+	}
+	
 	public void restore(String localDir, String fn ) throws IOException, OncRpcException{
 		String content = _nfsc.readFile(fn);
 		writeLocal(localDir, content, fn);

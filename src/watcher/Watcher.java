@@ -41,8 +41,9 @@ public class Watcher{
 	private boolean _trace = true;
 	private NFSClient _nfsc;
 	private String _username = "zaikunxu";
+	private final int _recover;
 	//private ArrayList<Watcher> _listofWatcher;
-	public Watcher(String address, String remoteDir, String localDir, boolean recursive) throws IOException, OncRpcException{
+	public Watcher(String address, String remoteDir, String localDir, boolean recursive , int r) throws IOException, OncRpcException{
 		_address = address;
 		_remoteDir =remoteDir;
 		_localDir = localDir;
@@ -50,7 +51,7 @@ public class Watcher{
 		_localPath = Paths.get(_localDir);
 		_keys = new HashMap<WatchKey,Path>();
 		_recursive = recursive;
-
+		_recover = r;
 		_nfsc = new NFSClient(_address, _remoteDir, 501, 20, _username);
 	
 		initRegister();
@@ -107,8 +108,9 @@ public class Watcher{
     /**
      * Process all events for keys queued to the watcher
      * @throws OncRpcException 
+     * @throws IOException 
      */
-    void processEvents() throws OncRpcException {
+    void processEvents() throws OncRpcException, IOException {
         for (;;) {
 
             // wait for key to be signalled
@@ -200,6 +202,27 @@ public class Watcher{
                     break;
                 }
             }
+            
+            // if _recover = 1, periodically to check whether there are changes on server;
+            if(_recover == 1){
+            	NFSHelper nh = new NFSHelper(_nfsc);
+            	// how to access all the files on server ? 
+            	//nh.restore(_localDir, fn);
+//                Files.walkFileTree(_localPath, new SimpleFileVisitor<Path>() {
+//                    @Override
+//                    public FileVisitResult preVisitDirectory(Path dir, BasicFileAttributes attrs)
+//                        throws IOException
+//                    {
+//                        try {
+//							nh.restore(_localDir, dir.toString());
+//						} catch (OncRpcException e) {
+//							// TODO Auto-generated catch block
+//							e.printStackTrace();
+//						}
+//                        return FileVisitResult.CONTINUE;
+//                    }
+//                });
+            }
         }
     }
 
@@ -232,9 +255,11 @@ public class Watcher{
         String host = "localhost";
         String localDir = "/Users/zaikunxu/Desktop/local";
         String remoteDir = "/exports";
-    
+        // the flag for recover from server, if 1, recover;
+        int needRecover = Integer.parseInt(args[0]);
+        
         boolean recursive = true;
-        new Watcher(host, remoteDir, localDir, recursive).processEvents();
+        new Watcher(host, remoteDir, localDir, recursive, needRecover).processEvents();
     
     }
 }
