@@ -405,6 +405,7 @@ public class NFSClient {
     
     public synchronized boolean makeDir(String path) throws IOException, OncRpcException {
     		Parts p = lookup_parts(path);
+    		System.out.println(p.name);
     		return makeDir(p.dir, p.name);
     }
     
