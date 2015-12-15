@@ -139,15 +139,14 @@ public class Watcher{
 	
 	public static void main(String[] args) throws Exception {
         // parse arguments
-        String host = "localhost";
-        String localDir = "/Users/cornelius/Dropbox/USI courses/Eclipse work space/DS_project/NFS/test";
-        String remoteDir = "/exports";
-        int uid = 502;
-        int gid = 20;
-        String username = "cornelius";
-        boolean recursive = true;
+        String host      = args.length > 1 ? args[0] : "localhost";
+        String localDir  = args.length > 1 ? args[1] :"/Users/cornelius/Dropbox/USI courses/Eclipse work space/DS_project/NFS/test";
+        String remoteDir = args.length > 1 ? args[2] : "/exports";
+        int uid          = args.length > 1 ? Integer.parseInt(args[3]) : 502;
+        int gid          = args.length > 1 ? Integer.parseInt(args[4]) : 20;
+        String username  = System.getProperty("user.name");
         
-        new Watcher(host, remoteDir, localDir, recursive, uid, gid, username).processEvents();
+        new Watcher(host, remoteDir, localDir, true, uid, gid, username).processEvents();
     
     }
 };
