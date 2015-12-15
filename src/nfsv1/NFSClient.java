@@ -25,7 +25,7 @@ public class NFSClient {
     private final Cipher decCipher;
     private final SecretKeySpec key;
     private final IvParameterSpec iv;
-    private final boolean useAES;
+    public boolean useAES;
   
     public NFSClient(String host, String mntPoint, int uid, int gid, String username, byte[] key) throws Exception {
         this.uid = uid;
@@ -103,6 +103,7 @@ public class NFSClient {
         fhandle dir = root;
         for (int i = 1; i<parts.length; i++) {
             dir = lookup(dir, parts[i]);
+            if (dir == null) return null;
         }
         return dir;
     }
@@ -140,6 +141,7 @@ public class NFSClient {
     //        };
 
     public fattr getAttr(fhandle file) throws IOException, OncRpcException {
+        if (file == null) return null;
         attrstat out = nfs.NFSPROC_GETATTR_2(file);
         if (out.status != stat.NFS_OK) {
             errorMessage(out.status);
@@ -153,6 +155,10 @@ public class NFSClient {
 
     public fattr getAttr(fhandle folder, String filename) throws IOException, OncRpcException {
         return getAttr(lookup(folder, filename));
+    }
+    
+    public fattr getAttr(String path) throws IOException, OncRpcException {
+        return getAttr(lookup(path));
     }
     
 
@@ -326,7 +332,7 @@ public class NFSClient {
             try {
                 return new String(decCipher.doFinal(out.read.data.value));
             } catch (Exception ex) {
-                System.out.println("Tough luck: Decription failed, your files might be lost forever!");
+                System.out.println("Tough luck: Decryption failed, your files might be lost forever!");
                 System.exit(1);
             }
         }
@@ -535,7 +541,7 @@ public class NFSClient {
     
     
 //    cmd-line AES (for checking the encrypted files): 
-//      encrypt: openssl aes-128-cbc -in file -out /dev/stdout -nosalt -K "0123456789abcdef0123456789abcdef" -iv "0123456789abcdef0123456789abcdef"
+//    encrypt: openssl aes-128-cbc -in file -out /dev/stdout -nosalt -K "0123456789abcdef0123456789abcdef" -iv "0123456789abcdef0123456789abcdef"
 //    decrypt: openssl aes-128-cbc -d -in file -out /dev/stdout -nosalt -K "0123456789abcdef0123456789abcdef" -iv "0123456789abcdef0123456789abcdef"
     
     public static void main(String[] args) throws Exception {
@@ -635,21 +641,6 @@ public class NFSClient {
         client.createFile("/a/b/c/d/f/g/h");
         client.writeFile("/a/b/c/d/f/g/h", "123abc");
         System.out.format("Contents: %s\n", client.readFile("/a/b/c/d/f/g/h"));
-        client.removeFiles("/a");
-        
-        
+        client.removeFiles("/a"); 
     }
-    
-    //    read by spliting and save
-    // if a file is missing, remove them
-    // compile java -cp lib/sss-0.1.jar:
-    //    sss.join(size, ret, bbVector.toarray)())
-    //    
-    //    
-    //    ByteBuffer inb = sss.readFile(fName);
-    //    int[] ids = new int[splits];
-    //    ByteBuffer[] out = new ByteBuffer[splits];
-    //        
-    //    inb.rewind();
-    //    sss.split(inb.capacity(), inb, minSplits, ids, out);
 }

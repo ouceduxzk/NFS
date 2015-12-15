@@ -27,7 +27,7 @@ public class NFSHelper {
     private final int uid;
     private final int gid;
     private final String username;
-	private NFSClient nfsc;
+	private final NFSClient nfsc;
 	public NFSHelper(String host, String mountDir, int uid, int gid, String username) throws Exception {
 		this.host     = host;
 		this.mountDir = mountDir;
@@ -36,11 +36,34 @@ public class NFSHelper {
 		this.username = username;
 		
 		nfsc = new NFSClient(host, mountDir, uid, gid, username, null);
+		nfsc.useAES = false;
 	}
 
-	public static void restore(String remotePath, String localPath) {
+	public void restore(String remotePath, String localPath) throws IOException, OncRpcException {
 	    System.out.format("Restore %s at %s\n", remotePath, localPath);
+	    fattr attributes = nfsc.getAttr(remotePath);
+	    if (attributes == null) {
+	        System.err.println("No such path!");
+	        return;
+	    }
+	    List<String> parts = Arrays.asList(remotePath.split("/"));
+	    String dir = Paths.get(localPath).resolve(String.join("/", parts.subList(1, parts.size() -1))).toString();
+	    String entity = Paths.get(localPath).resolve(String.join("/", parts.subList(1, parts.size()))).toString();
+	    System.out.format("Creating '%s' directory\n", dir);
+	    new File(dir).mkdirs();
+	    switch (attributes.type) {
+	        case ftype.NFREG:
+	            String contents = nfsc.readFile(remotePath);
+	            Files.write(Paths.get(entity), contents.getBytes(), StandardOpenOption.WRITE, StandardOpenOption.CREATE_NEW, StandardOpenOption.TRUNCATE_EXISTING);
+	            break;
+	        case ftype.NFDIR:
+	            new File(entity).mkdir();
+	            break;
+	        default:
+	            System.err.format("Unsupported file type: %d\n", attributes.type);
+	    }
 	}
+
 
 	public static void main(String[] args) throws Exception {
         String host       = args.length > 1 ? args[0] : "localhost";
