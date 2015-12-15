@@ -11,23 +11,23 @@ import org.acplt.oncrpc.OncRpcException;
 import nfsv1.NFSClient;
 
 public class Watcher{
-	private final String address;
+	private final String host;
 	private final Path remoteDir;
 	private final Path localDir;
 	private final WatchService watcher;
 	private final HashMap<WatchKey, Path> keys;
 	private final boolean recursive;
-	private final NFSClient nfsc;
 	private final String username;
+	private final NFSClient nfsc;
 
-	public Watcher(String address, String remoteDir, String localDir, boolean recursive, int uid, int gid, String username) throws Exception {
-		this.address = address;
+	public Watcher(String host, String remoteDir, String localDir, boolean recursive, int uid, int gid, String username) throws Exception {
+		this.host      = host;
 		this.remoteDir = Paths.get(remoteDir);
-		this.localDir = Paths.get(localDir);
-		this.watcher = FileSystems.getDefault().newWatchService();
-		this.keys = new HashMap<WatchKey,Path>();
+		this.localDir  = Paths.get(localDir);
+		this.watcher   = FileSystems.getDefault().newWatchService();
+		this.keys      = new HashMap<WatchKey,Path>();
 		this.recursive = recursive;
-		this.username = username;
+		this.username  = username;
 		
 		if (recursive) {
 		    registerAll(this.localDir);
@@ -35,7 +35,7 @@ public class Watcher{
 		    register(this.localDir);
 		}
 		
-		nfsc = new NFSClient(address, remoteDir, uid, gid, username, null);
+		nfsc = new NFSClient(host, remoteDir, uid, gid, username, null);
 	}
 
     /**
@@ -150,8 +150,8 @@ public class Watcher{
 	public static void main(String[] args) throws Exception {
         // parse arguments
         String host      = args.length > 1 ? args[0] : "localhost";
-        String localDir  = args.length > 1 ? args[1] :"/Users/cornelius/Dropbox/USI courses/Eclipse work space/DS_project/NFS/test";
-        String remoteDir = args.length > 1 ? args[2] : "/exports";
+        String remoteDir = args.length > 1 ? args[1] : "/exports";
+        String localDir  = args.length > 1 ? args[2] :"/Users/cornelius/Dropbox/USI courses/Eclipse work space/DS_project/NFS/test";
         int uid          = NFSClient.getUID();
         int gid          = NFSClient.getGID();
         String username  = System.getProperty("user.name");

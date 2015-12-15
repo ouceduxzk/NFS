@@ -22,27 +22,36 @@ import nfsv1.NFSClient;
  */
 
 public class NFSHelper {
-//	private String _address;
-//	private String _remoteDir;
-	//private String _localPath;
-	private NFSClient _nfsc;
-	public NFSHelper(NFSClient nfsc) throws IOException, OncRpcException {
-		// TODO Auto-generated constructor stub
-		//_localPath = localPath;
-		_nfsc = nfsc;
+    private final String host;
+    private final String mountDir;
+    private final int uid;
+    private final int gid;
+    private final String username;
+	private NFSClient nfsc;
+	public NFSHelper(String host, String mountDir, int uid, int gid, String username) throws Exception {
+		this.host     = host;
+		this.mountDir = mountDir;
+		this.uid      = uid;
+		this.gid      = gid;
+		this.username = username;
+		
+		nfsc = new NFSClient(host, mountDir, uid, gid, username, null);
 	}
 
-	private void writeLocal(String localDir, String content, String fn) throws IOException {
-		String joinedPath = new File(localDir, fn).toString();
-		PrintWriter out = new PrintWriter(joinedPath);
-		out.write(content);
-		out.close();
+	public static void restore(String remotePath, String localPath) {
+	    System.out.format("Restore %s at %s\n", remotePath, localPath);
 	}
-	
-	public void restore(String localDir, String fn ) throws IOException, OncRpcException{
-		String content = _nfsc.readFile(fn);
-		writeLocal(localDir, content, fn);
-	}
-	
-	
+
+	public static void main(String[] args) throws Exception {
+        String host       = args.length > 1 ? args[0] : "localhost";
+        String mountDir   = args.length > 1 ? args[1] : "/exports";
+        String remotePath = args.length > 1 ? args[2] : "/a/b/c";
+        String localPath  = args.length > 1 ? args[3] : "/Users/cornelius/Dropbox/USI courses/Eclipse work space/DS_project/NFS/test";
+        int uid           = NFSClient.getUID();
+        int gid           = NFSClient.getGID();
+        String username   = System.getProperty("user.name");
+        
+        NFSHelper nfsh   = new NFSHelper(host, mountDir, uid, gid, username);
+        nfsh.restore(remotePath, localPath);
+    }
 }
