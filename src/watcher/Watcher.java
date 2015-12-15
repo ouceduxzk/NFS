@@ -10,43 +10,43 @@ import org.acplt.oncrpc.OncRpcException;
 import nfsv1.NFSClient;
 
 public class Watcher{
-	private final String _address;
-	private final String _remoteDir;
-	private final String _localDir;
-	private final WatchService _watcher;
-	private final Path _localPath;
-	private final HashMap<WatchKey, Path> _keys;
-	private final boolean _recursive = true ;
-	private final boolean _trace = true;
-	private final NFSClient _nfsc;
-	private final String _username;
+	private final String address;
+	private final String remoteDir;
+	private final String localDir;
+	private final WatchService watcher;
+	private final Path localPath;
+	private final HashMap<WatchKey, Path> keys;
+	private final boolean recursive;
+	private boolean trace = true;
+	private final NFSClient nfsc;
+	private final String username;
 	//private ArrayList<Watcher> _listofWatcher;
 	public Watcher(String address, String remoteDir, String localDir, boolean recursive, String username) throws Exception {
-		_address = address;
-		_remoteDir = remoteDir;
-		_localDir = localDir;
-		_watcher = FileSystems.getDefault().newWatchService();
-		_localPath = Paths.get(_localDir);
-		_keys = new HashMap<WatchKey,Path>();
-		_recursive = recursive;
-		_username = username;
+		this.address = address;
+		this.remoteDir = remoteDir;
+		this.localDir = localDir;
+		this.watcher = FileSystems.getDefault().newWatchService();
+		this.localPath = Paths.get(localDir);
+		this.keys = new HashMap<WatchKey,Path>();
+		this.recursive = recursive;
+		this.username = username;
 
-		_nfsc = new NFSClient(_address, _remoteDir, 501, 20, _username, null);
+		nfsc = new NFSClient(address, remoteDir, 501, 20, username, null);
 	
 		initRegister();
 	}
 	
 	public void initRegister() throws IOException {
-	        if (_recursive) {
-	            System.out.format("Scanning %s ...\n", _localDir);
-	            registerAll(_localPath);
+	        if (recursive) {
+	            System.out.format("Scanning %s ...\n", localDir);
+	            registerAll(localPath);
 	            System.out.println("Done.");
 	        } else {
-	            register(_localPath);
+	            register(localPath);
 	        }
 
 	        // enable trace after initial registration
-	        _trace = true;
+	        trace = true;
 	}
 
     /**
@@ -54,9 +54,9 @@ public class Watcher{
      */
     private void register(Path dir) throws IOException {
     	System.out.println(dir);
-        WatchKey key = dir.register(_watcher, ENTRY_CREATE, ENTRY_DELETE, ENTRY_MODIFY);
-        if (_trace) {
-            Path prev = _keys.get(key);
+        WatchKey key = dir.register(watcher, ENTRY_CREATE, ENTRY_DELETE, ENTRY_MODIFY);
+        if (trace) {
+            Path prev = keys.get(key);
             if (prev == null) {
                 System.out.format("register: %s\n", dir);
             } else {
@@ -65,7 +65,7 @@ public class Watcher{
                 }
             }
         }
-        _keys.put(key, dir);
+        keys.put(key, dir);
     }
 
     /**
@@ -95,12 +95,12 @@ public class Watcher{
             // wait for key to be signalled
             WatchKey key;
             try {
-                key = _watcher.take();
+                key = watcher.take();
             } catch (InterruptedException x) {
                 return;
             }
 
-            Path dir = _keys.get(key);
+            Path dir = keys.get(key);
             if (dir == null) {
                 System.err.println("WatchKey not recognized!!");
                 continue;
@@ -125,7 +125,7 @@ public class Watcher{
 
                 // if directory is created, and watching recursively, then
                 // register it and its sub-directories
-                if (_recursive && (kind == ENTRY_CREATE)) {
+                if (recursive && (kind == ENTRY_CREATE)) {
                     try {
                         if (Files.isDirectory(child, NOFOLLOW_LINKS)) {
                             registerAll(child);
@@ -134,13 +134,13 @@ public class Watcher{
                             //String[] fhs = child.toString().split("/");
                             //int len = fhs.length;
                             //System.out.println(fhs[len-1]);
-                            _nfsc.makeDirs(child.toString()); 
+                            nfsc.makeDirs(child.toString()); 
                           
                         }else{
                         	// a single file
-                        	_nfsc.createFile(child.toString());
+                        	nfsc.createFile(child.toString());
                         	String contents = readFile(child.toString());
-                        	boolean w = _nfsc.writeFile(child.toString(), contents);
+                        	boolean w = nfsc.writeFile(child.toString(), contents);
                         	if(w) { System.out.println("file " + child.toString() +  " created successfully") ;}   	
                         	
                         }
@@ -151,16 +151,16 @@ public class Watcher{
                     }
                 }
                 
-                if(_recursive && (kind == ENTRY_MODIFY)){
+                if(recursive && (kind == ENTRY_MODIFY)){
                     try {
                         if (Files.isDirectory(child, NOFOLLOW_LINKS)) {
-                           _nfsc.makeDir(child.toString());
+                           nfsc.makeDir(child.toString());
                            //Parts tmp = _nfsc.lookup_parts(child.toString());
                            //filename newname = new filename( child.toString() );
                            //_nfsc.renameDir(tmp, newname, child.toString());
                         }else{
                         	String contents = readFile(child.toString());
-                        	boolean w = _nfsc.writeFile(child.toString(), contents);
+                        	boolean w = nfsc.writeFile(child.toString(), contents);
                         	if(w) { System.out.println("file " + child.toString() +  " modified successfully") ;}   	
                         }
                         
@@ -175,10 +175,10 @@ public class Watcher{
             // reset key and remove from set if directory no longer accessible
             boolean valid = key.reset();
             if (!valid) {
-                _keys.remove(key);
+                keys.remove(key);
 
                 // all directories are inaccessible
-                if (_keys.isEmpty()) {
+                if (keys.isEmpty()) {
                     break;
                 }
             }
