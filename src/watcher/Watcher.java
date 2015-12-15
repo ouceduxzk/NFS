@@ -11,30 +11,30 @@ import nfsv1.NFSClient;
 
 public class Watcher{
 	private final String address;
-	private final String remoteDir;
-	private final String localDir;
+	private final Path remoteDir;
+	private final Path localDir;
 	private final WatchService watcher;
 	private final HashMap<WatchKey, Path> keys;
 	private final boolean recursive;
 	private final NFSClient nfsc;
 	private final String username;
 
-	public Watcher(String address, String remoteDir, String localDir, boolean recursive, String username) throws Exception {
+	public Watcher(String address, String remoteDir, String localDir, boolean recursive, int uid, int gid, String username) throws Exception {
 		this.address = address;
-		this.remoteDir = remoteDir;
-		this.localDir = localDir;
+		this.remoteDir = Paths.get(remoteDir);
+		this.localDir = Paths.get(localDir);
 		this.watcher = FileSystems.getDefault().newWatchService();
 		this.keys = new HashMap<WatchKey,Path>();
 		this.recursive = recursive;
 		this.username = username;
 		
 		if (recursive) {
-		    registerAll(Paths.get(localDir));
+		    registerAll(this.localDir);
 		} else {
-		    register(Paths.get(localDir));
+		    register(this.localDir);
 		}
 		
-		nfsc = new NFSClient(address, remoteDir, 501, 20, username, null);
+		nfsc = new NFSClient(address, remoteDir, uid, gid, username, null);
 	}
 
     /**
@@ -63,7 +63,7 @@ public class Watcher{
      * Process all events for keys queued to the watcher
      * @throws OncRpcException 
      */
-    void processEvents() throws OncRpcException {
+    void processEvents() throws IOException, OncRpcException {
         for (;;) {
 
             // wait for key to be signalled
@@ -83,67 +83,41 @@ public class Watcher{
             for (WatchEvent<?> event: key.pollEvents()) {
                 WatchEvent.Kind<?> kind = event.kind();
 
-                // TBD - provide example of how OVERFLOW event is handled
-                if (kind == OVERFLOW) {
-                    continue;
-                }
-
                 // Context for directory entry event is the file name of entry
                 @SuppressWarnings("unchecked")
                 WatchEvent<Path> ev = (WatchEvent<Path>) event;
                 Path name = ev.context();
-                Path child = dir.resolve(name);
-                System.out.println("debug  " + child.toString());
-                // print out event
-                System.out.format("%s: %s\n", event.kind().name(), child);
-
-                // if directory is created, and watching recursively, then
-                // register it and its sub-directories
-                if (recursive && (kind == ENTRY_CREATE)) {
-                    try {
-                        if (Files.isDirectory(child, NOFOLLOW_LINKS)) {
-                            registerAll(child);
-                            //############ create the directory on server
-                            ///////////////////////////////////////////
-                            //String[] fhs = child.toString().split("/");
-                            //int len = fhs.length;
-                            //System.out.println(fhs[len-1]);
-                            nfsc.makeDirs(child.toString()); 
-                          
-                        }else{
-                        	// a single file
-                        	nfsc.createFile(child.toString());
-                        	String contents = readFile(child.toString());
-                        	boolean w = nfsc.writeFile(child.toString(), contents);
-                        	if(w) { System.out.println("file " + child.toString() +  " created successfully") ;}   	
-                        	
-                        }
-                        
-                    } catch (IOException x) {
-                        // ignore to keep sample readbale
-                    	x.printStackTrace();
-                    }
-                }
+                Path localPath = localDir.resolve(name);
+                String remotePath = "/" + name.toString();
+                System.err.format("Saw %s on %s\n", kind.name(), name);
                 
-                if(recursive && (kind == ENTRY_MODIFY)){
-                    try {
-                        if (Files.isDirectory(child, NOFOLLOW_LINKS)) {
-                           nfsc.makeDir(child.toString());
-                           //Parts tmp = _nfsc.lookup_parts(child.toString());
-                           //filename newname = new filename( child.toString() );
-                           //_nfsc.renameDir(tmp, newname, child.toString());
-                        }else{
-                        	String contents = readFile(child.toString());
-                        	boolean w = nfsc.writeFile(child.toString(), contents);
-                        	if(w) { System.out.println("file " + child.toString() +  " modified successfully") ;}   	
+                switch (kind.name()) {
+                    case "ENTRY_CREATE":
+                        if (Files.isDirectory(localPath)) {
+                            nfsc.makeDirs(remotePath);
+                            registerAll(localPath);
+                        } else if (Files.isRegularFile(localPath)) {
+                            nfsc.createFile(remotePath);
                         }
-                        
-                    } catch (IOException x) {
-                        // ignore to keep sample readbale
-                    	x.printStackTrace();
-                    }
-                }
-                
+                        break;
+                    case "ENTRY_DELETE":
+                        System.err.println("Delete event ignored");
+                        break;
+                    case "ENTRY_MODIFY":
+                        if (Files.isDirectory(localPath)) {
+                            nfsc.makeDirs(remotePath);
+                        } else if (Files.isRegularFile(localPath)) {
+                            String contents = readFile(localPath);
+                            nfsc.writeFile(remotePath, contents);
+                        }
+                        break;
+                    case "OVERFLOW":
+                        System.err.println("Event overflow detected");
+                        break;
+                    default:
+                        System.err.format("Unknown event %s\n", kind.name());
+                        break;
+                }                
             }
 
             // reset key and remove from set if directory no longer accessible
@@ -159,8 +133,8 @@ public class Watcher{
         }
     }
 
-	String readFile(String fileName) throws IOException {
-	    return new String(Files.readAllBytes(Paths.get(fileName)));
+	String readFile(Path path) throws IOException {
+	    return new String(Files.readAllBytes(path));
 	}
 	
 	public static void main(String[] args) throws Exception {
@@ -168,10 +142,12 @@ public class Watcher{
         String host = "localhost";
         String localDir = "/Users/cornelius/Dropbox/USI courses/Eclipse work space/DS_project/NFS/test";
         String remoteDir = "/exports";
+        int uid = 502;
+        int gid = 20;
         String username = "cornelius";
         boolean recursive = true;
         
-        new Watcher(host, remoteDir, localDir, recursive, username).processEvents();
+        new Watcher(host, remoteDir, localDir, recursive, uid, gid, username).processEvents();
     
     }
 };
