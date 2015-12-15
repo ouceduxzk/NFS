@@ -42,7 +42,7 @@ public class Watcher{
      */
     private void register(Path dir) throws IOException {
         System.out.format("Registering %s\n", dir);
-        WatchKey key = dir.register(watcher, ENTRY_CREATE, ENTRY_DELETE, ENTRY_MODIFY);
+        WatchKey key = dir.register(watcher, ENTRY_CREATE, ENTRY_MODIFY);
         keys.put(key, dir);
     }
 
@@ -87,17 +87,20 @@ public class Watcher{
                 @SuppressWarnings("unchecked")
                 WatchEvent<Path> ev = (WatchEvent<Path>) event;
                 Path name = ev.context();
+                Path localDir = (Path)(key.watchable());
                 Path localPath = localDir.resolve(name);
-                String remotePath = "/" + name.toString();
-                System.err.format("Saw %s on %s\n", kind.name(), name);
+                String remotePath = "/" + this.localDir.relativize(localPath);
+                System.err.format("Saw %s on %s\n\tlocalpath=%s\n\tremotepath=%s\n", kind.name(), name, localPath, remotePath);
                 
                 switch (kind.name()) {
                     case "ENTRY_CREATE":
                         if (Files.isDirectory(localPath)) {
-                            nfsc.makeDirs(remotePath);
                             registerAll(localPath);
+                            nfsc.makeDirs(remotePath);
                         } else if (Files.isRegularFile(localPath)) {
                             nfsc.createFile(remotePath);
+                            String contents = readFile(localPath);
+                            nfsc.writeFile(remotePath, contents);
                         }
                         break;
                     case "ENTRY_DELETE":
