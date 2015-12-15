@@ -52,7 +52,7 @@ public class Watcher{
      */
     private void registerAll(Path start) throws IOException {
         // register directory and sub-directories
-        Files.walk(start, FileVisitOption.FOLLOW_LINKS).forEach(path -> {
+        Files.walk(start).forEach(path -> {
             try {
                 register(path);
             } catch (Exception e) {}
@@ -97,6 +97,12 @@ public class Watcher{
                         if (Files.isDirectory(localPath)) {
                             registerAll(localPath);
                             nfsc.makeDirs(remotePath);
+                            // make sure we create all sub-dirs too
+                            Files.walk(localPath).forEachOrdered(p -> {
+                                try {
+                                    nfsc.makeDir("/" + this.localDir.relativize(p));
+                                } catch (Exception e) {}
+                            });
                         } else if (Files.isRegularFile(localPath)) {
                             nfsc.createFile(remotePath);
                             String contents = readFile(localPath);
