@@ -213,9 +213,9 @@ public class NFSClient {
             case stat.NFSERR_PERM:
                 System.out.println("Bad permissions.");
                 break;
+            case stat.NFSERR_NOENT:
             case stat.NFSERR_EXIST:
-                System.out.println("Directory already exists.");
-                break;
+                break; // small hack, ignore
             default:
                 System.out.format("Other error: %d\n", status);
         }
