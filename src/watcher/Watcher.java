@@ -17,10 +17,9 @@ public class Watcher{
 	private final Path localPath;
 	private final HashMap<WatchKey, Path> keys;
 	private final boolean recursive;
-	private boolean trace = true;
 	private final NFSClient nfsc;
 	private final String username;
-	//private ArrayList<Watcher> _listofWatcher;
+
 	public Watcher(String address, String remoteDir, String localDir, boolean recursive, String username) throws Exception {
 		this.address = address;
 		this.remoteDir = remoteDir;
@@ -44,9 +43,6 @@ public class Watcher{
 	        } else {
 	            register(localPath);
 	        }
-
-	        // enable trace after initial registration
-	        trace = true;
 	}
 
     /**
@@ -55,16 +51,6 @@ public class Watcher{
     private void register(Path dir) throws IOException {
     	System.out.println(dir);
         WatchKey key = dir.register(watcher, ENTRY_CREATE, ENTRY_DELETE, ENTRY_MODIFY);
-        if (trace) {
-            Path prev = keys.get(key);
-            if (prev == null) {
-                System.out.format("register: %s\n", dir);
-            } else {
-                if (!dir.equals(prev)) {
-                    System.out.format("update: %s -> %s\n", prev, dir);
-                }
-            }
-        }
         keys.put(key, dir);
     }
 
