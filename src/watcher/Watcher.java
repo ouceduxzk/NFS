@@ -193,21 +193,7 @@ public class Watcher{
     }
    
 	String readFile(String fileName) throws IOException {
-	    BufferedReader br = new BufferedReader(new FileReader(fileName));
-	    try {
-	        StringBuilder sb = new StringBuilder();
-	        String line = br.readLine();
-
-	        while (line != null) {
-	            sb.append(line);
-	            line = br.readLine();
-	            if(line != null) sb.append("\n");
-	        }
-	        //if(sb.length() > 1) sb.setLength(sb.length() - 1);
-	        return sb.toString();
-	    } finally {
-	        br.close();
-	    }
+	    return new String(Files.readAllBytes(Paths.get(fileName)));
 	}
 	
 	public static void main(String[] args) throws Exception {
