@@ -4,11 +4,7 @@ import java.io.*;
 import java.net.InetAddress;
 import java.util.*;
 
-import org.acplt.oncrpc.OncRpcClientAuth;
-import org.acplt.oncrpc.OncRpcClientAuthUnix;
-import org.acplt.oncrpc.OncRpcClientStub;
-import org.acplt.oncrpc.OncRpcException;
-import org.acplt.oncrpc.OncRpcProtocols;
+import org.acplt.oncrpc.*;
 
 import client.mount.*;
 import client.nfs.*;
@@ -415,6 +411,21 @@ public class NFSClient {
         return removeDir(p.dir, p.name);
     }
     
+    public static Scanner execute(String[] cmd) throws IOException {
+        Runtime r = Runtime.getRuntime();
+        Scanner s = new Scanner(r.exec(cmd).getInputStream());
+        return s;
+    }
+    
+    public static int getUID () throws IOException {
+        return NFSClient.execute(new String[] {"id", "-u"}).nextInt();
+    }
+    
+    public static int getGID () throws IOException {
+        return NFSClient.execute(new String[] {"id", "-g"}).nextInt();
+    }
+
+    
     public synchronized boolean makeDir(fhandle folder, filename dirname) throws IOException, OncRpcException {
         diropargs where = new diropargs();
         where.dir = folder;
@@ -537,7 +548,7 @@ public class NFSClient {
             key = NFSClient.readKey(keyPath);
         }            
             
-        NFSClient client = new NFSClient("localhost", "/exports", 502, 20, "cornelius", key);
+        NFSClient client = new NFSClient("localhost", "/exports", NFSClient.getUID(), NFSClient.getGID(), System.getProperty("user.name"), key);
         assert(client.nfs != null);
         assert(client.root != null);
         fhandle dir = client.getRoot();

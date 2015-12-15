@@ -5,6 +5,7 @@ import java.nio.file.attribute.BasicFileAttributes;
 import static java.nio.file.LinkOption.*;
 import static java.nio.file.StandardWatchEventKinds.*;
 import java.util.HashMap;
+import java.util.Scanner;
 
 import org.acplt.oncrpc.OncRpcException;
 import nfsv1.NFSClient;
@@ -151,8 +152,8 @@ public class Watcher{
         String host      = args.length > 1 ? args[0] : "localhost";
         String localDir  = args.length > 1 ? args[1] :"/Users/cornelius/Dropbox/USI courses/Eclipse work space/DS_project/NFS/test";
         String remoteDir = args.length > 1 ? args[2] : "/exports";
-        int uid          = args.length > 1 ? Integer.parseInt(args[3]) : 502;
-        int gid          = args.length > 1 ? Integer.parseInt(args[4]) : 20;
+        int uid          = NFSClient.getUID();
+        int gid          = NFSClient.getGID();
         String username  = System.getProperty("user.name");
         
         new Watcher(host, remoteDir, localDir, true, uid, gid, username).processEvents();
