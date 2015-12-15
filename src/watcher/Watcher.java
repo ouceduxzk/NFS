@@ -14,7 +14,6 @@ public class Watcher{
 	private final String remoteDir;
 	private final String localDir;
 	private final WatchService watcher;
-	private final Path localPath;
 	private final HashMap<WatchKey, Path> keys;
 	private final boolean recursive;
 	private final NFSClient nfsc;
@@ -25,24 +24,17 @@ public class Watcher{
 		this.remoteDir = remoteDir;
 		this.localDir = localDir;
 		this.watcher = FileSystems.getDefault().newWatchService();
-		this.localPath = Paths.get(localDir);
 		this.keys = new HashMap<WatchKey,Path>();
 		this.recursive = recursive;
 		this.username = username;
-
+		
+		if (recursive) {
+		    registerAll(Paths.get(localDir));
+		} else {
+		    register(Paths.get(localDir));
+		}
+		
 		nfsc = new NFSClient(address, remoteDir, 501, 20, username, null);
-	
-		initRegister();
-	}
-	
-	public void initRegister() throws IOException {
-	        if (recursive) {
-	            System.out.format("Scanning %s ...\n", localDir);
-	            registerAll(localPath);
-	            System.out.println("Done.");
-	        } else {
-	            register(localPath);
-	        }
 	}
 
     /**
