@@ -1,34 +1,15 @@
 package watcher;
-import static java.nio.file.LinkOption.NOFOLLOW_LINKS;
-import static java.nio.file.StandardWatchEventKinds.ENTRY_CREATE;
-import static java.nio.file.StandardWatchEventKinds.ENTRY_DELETE;
-import static java.nio.file.StandardWatchEventKinds.ENTRY_MODIFY;
-import static java.nio.file.StandardWatchEventKinds.OVERFLOW;
-
 import java.io.BufferedReader;
-import java.io.File;
 import java.io.FileReader;
 import java.io.IOException;
-import java.nio.file.FileSystems;
-import java.nio.file.FileVisitResult;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
-import java.nio.file.SimpleFileVisitor;
-import java.nio.file.WatchEvent;
-import java.nio.file.WatchKey;
-import java.nio.file.WatchService;
+import java.nio.file.*;
 import java.nio.file.attribute.BasicFileAttributes;
-import java.util.Arrays;
+import static java.nio.file.LinkOption.*;
+import static java.nio.file.StandardWatchEventKinds.*;
 import java.util.HashMap;
-import java.util.Scanner;
 
 import org.acplt.oncrpc.OncRpcException;
-
-import client.nfs.fhandle;
-import client.nfs.filename;
 import nfsv1.NFSClient;
-import nfsv1.NFSClient.Parts;
 
 public class Watcher{
 	private String _address;
@@ -40,21 +21,23 @@ public class Watcher{
 	private boolean _recursive = true ;
 	private boolean _trace = true;
 	private NFSClient _nfsc;
-	private String _username = "zaikunxu";
+	private String _username;
 	//private ArrayList<Watcher> _listofWatcher;
-	public Watcher(String address, String remoteDir, String localDir, boolean recursive) throws IOException, OncRpcException{
+	public Watcher(String address, String remoteDir, String localDir, boolean recursive, String username) throws Exception {
 		_address = address;
-		_remoteDir =remoteDir;
+		_remoteDir = remoteDir;
 		_localDir = localDir;
 		_watcher = FileSystems.getDefault().newWatchService();
 		_localPath = Paths.get(_localDir);
 		_keys = new HashMap<WatchKey,Path>();
 		_recursive = recursive;
+		_username = username;
 
-		_nfsc = new NFSClient(_address, _remoteDir, 501, 20, _username);
+		_nfsc = new NFSClient(_address, _remoteDir, 501, 20, _username, null);
 	
 		initRegister();
 	}
+	
 	public void initRegister() throws IOException {
 	        if (_recursive) {
 	            System.out.format("Scanning %s ...\n", _localDir);
@@ -126,7 +109,7 @@ public class Watcher{
             }
 
             for (WatchEvent<?> event: key.pollEvents()) {
-                WatchEvent.Kind kind = event.kind();
+                WatchEvent.Kind<?> kind = event.kind();
 
                 // TBD - provide example of how OVERFLOW event is handled
                 if (kind == OVERFLOW) {
@@ -137,7 +120,7 @@ public class Watcher{
                 WatchEvent<Path> ev = cast(event);
                 Path name = ev.context();
                 Path child = dir.resolve(name);
-                //System.out.println("debug  " + child.toString());
+                System.out.println("debug  " + child.toString());
                 // print out event
                 System.out.format("%s: %s\n", event.kind().name(), child);
 
@@ -227,14 +210,15 @@ public class Watcher{
 	    }
 	}
 	
-	public static void main(String[] args) throws IOException, OncRpcException {
+	public static void main(String[] args) throws Exception {
         // parse arguments
         String host = "localhost";
-        String localDir = "/Users/zaikunxu/Desktop/local";
+        String localDir = "/Users/cornelius/Dropbox/USI courses/Eclipse work space/DS_project/NFS/test";
         String remoteDir = "/exports";
-    
+        String username = "cornelius";
         boolean recursive = true;
-        new Watcher(host, remoteDir, localDir, recursive).processEvents();
+        
+        new Watcher(host, remoteDir, localDir, recursive, username).processEvents();
     
     }
-}
+};
