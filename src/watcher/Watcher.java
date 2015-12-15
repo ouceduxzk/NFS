@@ -10,16 +10,16 @@ import org.acplt.oncrpc.OncRpcException;
 import nfsv1.NFSClient;
 
 public class Watcher{
-	private String _address;
-	private String _remoteDir;
-	private String _localDir;
+	private final String _address;
+	private final String _remoteDir;
+	private final String _localDir;
 	private final WatchService _watcher;
-	private Path _localPath;
-	private HashMap<WatchKey, Path> _keys;
-	private boolean _recursive = true ;
-	private boolean _trace = true;
-	private NFSClient _nfsc;
-	private String _username;
+	private final Path _localPath;
+	private final HashMap<WatchKey, Path> _keys;
+	private final boolean _recursive = true ;
+	private final boolean _trace = true;
+	private final NFSClient _nfsc;
+	private final String _username;
 	//private ArrayList<Watcher> _listofWatcher;
 	public Watcher(String address, String remoteDir, String localDir, boolean recursive, String username) throws Exception {
 		_address = address;
