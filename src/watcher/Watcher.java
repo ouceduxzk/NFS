@@ -117,7 +117,8 @@ public class Watcher{
                 }
 
                 // Context for directory entry event is the file name of entry
-                WatchEvent<Path> ev = cast(event);
+                @SuppressWarnings("unchecked")
+                WatchEvent<Path> ev = (WatchEvent<Path>) event;
                 Path name = ev.context();
                 Path child = dir.resolve(name);
                 System.out.println("debug  " + child.toString());
@@ -186,12 +187,6 @@ public class Watcher{
         }
     }
 
-    
-	@SuppressWarnings("unchecked")
-    static <T> WatchEvent<T> cast(WatchEvent<?> event) {
-        return (WatchEvent<T>)event;
-    }
-   
 	String readFile(String fileName) throws IOException {
 	    return new String(Files.readAllBytes(Paths.get(fileName)));
 	}
