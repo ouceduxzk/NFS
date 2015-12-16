@@ -6,6 +6,8 @@ import static java.nio.file.LinkOption.*;
 import static java.nio.file.StandardWatchEventKinds.*;
 import java.util.HashMap;
 import java.util.Scanner;
+import net.sourceforge.argparse4j.ArgumentParsers;
+import net.sourceforge.argparse4j.inf.*;
 
 import org.acplt.oncrpc.OncRpcException;
 import nfsv1.NFSClient;
@@ -20,7 +22,7 @@ public class Watcher{
 	private final String username;
 	private final NFSClient nfsc;
 
-	public Watcher(String host, String remoteDir, String localDir, boolean recursive, int uid, int gid, String username) throws Exception {
+	public Watcher(String host, String remoteDir, String localDir, boolean recursive, int uid, int gid, String username, String key) throws Exception {
 		this.host      = host;
 		this.remoteDir = Paths.get(remoteDir);
 		this.localDir  = Paths.get(localDir);
@@ -28,6 +30,7 @@ public class Watcher{
 		this.keys      = new HashMap<WatchKey,Path>();
 		this.recursive = recursive;
 		this.username  = username;
+		byte[] keyData = NFSClient.readOrGenerateKey(key);
 		
 		if (recursive) {
 		    registerAll(this.localDir);
@@ -35,7 +38,7 @@ public class Watcher{
 		    register(this.localDir);
 		}
 		
-		nfsc = new NFSClient(host, remoteDir, uid, gid, username, null);
+		nfsc = new NFSClient(host, remoteDir, uid, gid, username, keyData);
 	}
 
     /**
@@ -148,15 +151,32 @@ public class Watcher{
 	}
 	
 	public static void main(String[] args) throws Exception {
+	    ArgumentParser parser = ArgumentParsers.newArgumentParser("Watcher")
+	                                           .description("This program watches a local folder and propagates all changes to an NFSServer");
+	    parser.addArgument("-H", "--host").help("This is the NFSServer host").setDefault("localhost");
+	    parser.addArgument("-r", "--remote").help("This is the remote directory, to which you propagate changes")
+	                                            .setDefault("/exports");
+	    parser.addArgument("-l", "--local").help("This is the local directory, from which you propagate changes to the server")
+	                                            .setDefault("test");
+	    parser.addArgument("-k", "--key").help("This is the AES key: generates key to that filename, if it doesn't exist yet")
+	                                     .setDefault("KEY");
+	    Namespace ns = null;
+	    try {
+	        ns = parser.parseArgs(args);
+	    } catch (ArgumentParserException ex) {
+	        parser.handleError(ex);
+	        System.exit(1);
+	    }
         // parse arguments
-        String host      = args.length > 1 ? args[0] : "localhost";
-        String remoteDir = args.length > 1 ? args[1] : "/exports";
-        String localDir  = args.length > 1 ? args[2] :"/Users/cornelius/Dropbox/USI courses/Eclipse work space/DS_project/NFS/test";
+        String host      = ns.getString("host");
+        String remoteDir = ns.getString("remote");
+        String localDir  = ns.getString("local");
+        String key       = ns.getString("key");
         int uid          = NFSClient.getUID();
         int gid          = NFSClient.getGID();
         String username  = System.getProperty("user.name");
         
-        new Watcher(host, remoteDir, localDir, true, uid, gid, username).processEvents();
+        new Watcher(host, remoteDir, localDir, true, uid, gid, username, key).processEvents();
     
     }
 };

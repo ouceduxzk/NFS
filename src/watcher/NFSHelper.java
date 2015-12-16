@@ -13,6 +13,10 @@ import org.acplt.oncrpc.OncRpcProtocols;
 
 import client.mount.*;
 import client.nfs.*;
+import net.sourceforge.argparse4j.ArgumentParsers;
+import net.sourceforge.argparse4j.inf.ArgumentParser;
+import net.sourceforge.argparse4j.inf.ArgumentParserException;
+import net.sourceforge.argparse4j.inf.Namespace;
 import nfsv1.NFSClient;
 
 
@@ -28,14 +32,15 @@ public class NFSHelper {
     private final int gid;
     private final String username;
 	private final NFSClient nfsc;
-	public NFSHelper(String host, String mountDir, int uid, int gid, String username) throws Exception {
+	public NFSHelper(String host, String mountDir, int uid, int gid, String username, String key) throws Exception {
 		this.host     = host;
 		this.mountDir = mountDir;
 		this.uid      = uid;
 		this.gid      = gid;
 		this.username = username;
+		byte[] keyData = NFSClient.readOrGenerateKey(key);
 		
-		nfsc = new NFSClient(host, mountDir, uid, gid, username, null);
+		nfsc = new NFSClient(host, mountDir, uid, gid, username, keyData);
 	}
 
 	public void restore(String remotePath, String localPath) throws IOException, OncRpcException {
@@ -69,15 +74,35 @@ public class NFSHelper {
 
 
 	public static void main(String[] args) throws Exception {
-        String host       = args.length > 1 ? args[0] : "localhost";
-        String mountDir   = args.length > 1 ? args[1] : "/exports";
-        String remotePath = args.length > 1 ? args[2] : "/a/b/c/d/e/f/";
-        String localPath  = args.length > 1 ? args[3] : "/Users/cornelius/Dropbox/USI courses/Eclipse work space/DS_project/NFS/test";
+	    ArgumentParser parser = ArgumentParsers.newArgumentParser("Watcher")
+                .description("This program watches a local folder and propagates all changes to an NFSServer");
+        parser.addArgument("-H", "--host").help("This is the NFSServer host").setDefault("localhost");
+        parser.addArgument("-r", "--remote").help("This is the remote directory, to which you propagate changes")
+                                            .setDefault("/exports");
+        parser.addArgument("-l", "--local").help("This is the local directory, from which you propagate changes to the server")
+                                           .setDefault("test");
+        parser.addArgument("-k", "--key").help("This is the AES key: generates key to that filename, if it doesn't exist yet")
+                                         .setDefault("KEY");
+        parser.addArgument("path").help("This/these is/are the path(s) to restore").nargs("+");
+        Namespace ns = null;
+        try {
+            ns = parser.parseArgs(args);
+        } catch (ArgumentParserException ex) {
+            parser.handleError(ex);
+            System.exit(1);
+        }
+	    
+	    String host       = ns.getString("host");
+        String remoteDir  = ns.getString("remote");
+        String localDir   = ns.getString("local");
         int uid           = NFSClient.getUID();
         int gid           = NFSClient.getGID();
         String username   = System.getProperty("user.name");
+        String key        = ns.getString("key");
         
-        NFSHelper nfsh   = new NFSHelper(host, mountDir, uid, gid, username);
-        nfsh.restore(remotePath, localPath);
+        NFSHelper nfsh   = new NFSHelper(host, remoteDir, uid, gid, username, key);
+        for (String path : ns.<String> getList("path")) {
+            nfsh.restore(path, localDir);
+        }
     }
 }

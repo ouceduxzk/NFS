@@ -539,6 +539,16 @@ public class NFSClient {
         return Files.readAllBytes(Paths.get(filename));
     }
     
+    public static byte[] readOrGenerateKey(String filename) throws IOException {
+        if (Files.exists(Paths.get(filename))) {
+            return readKey(filename);
+        } else {
+            byte[] key = generateKey();
+            writeKey(key, filename);
+            key = readKey(filename);
+            return key;
+        }
+    }
     
 //    cmd-line AES (for checking the encrypted files): 
 //    encrypt: openssl aes-128-cbc -in file -out /dev/stdout -nosalt -K "0123456789abcdef0123456789abcdef" -iv "0123456789abcdef0123456789abcdef"
