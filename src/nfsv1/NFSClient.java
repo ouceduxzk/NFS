@@ -102,8 +102,8 @@ public class NFSClient implements NFSClientInterface {
         String [] parts = path.split("/");
         fhandle dir = root;
         for (int i = 1; i<parts.length; i++) {
-            dir = lookup(dir, parts[i]);
             if (dir == null) return null;
+            dir = lookup(dir, parts[i]);
         }
         return dir;
     }

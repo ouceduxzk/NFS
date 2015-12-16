@@ -5,10 +5,11 @@ import java.util.*;
 import org.acplt.oncrpc.*;
 import client.nfs.*;
 import net.sourceforge.argparse4j.ArgumentParsers;
+import net.sourceforge.argparse4j.impl.Arguments;
 import net.sourceforge.argparse4j.inf.ArgumentParser;
 import net.sourceforge.argparse4j.inf.ArgumentParserException;
 import net.sourceforge.argparse4j.inf.Namespace;
-import nfsv1.NFSClient;
+import nfsv1.*;
 
 
 /*
@@ -17,15 +18,19 @@ import nfsv1.NFSClient;
  */
 
 public class NFSHelper {
-	private final NFSClient nfsc;
+	private final NFSClientInterface nfsc;
 	public NFSHelper(String host, String mountDir, int uid, int gid, String username, String key) throws Exception {
 		byte[] keyData = NFSClient.readOrGenerateKey(key);
 		
 		nfsc = new NFSClient(host, mountDir, uid, gid, username, keyData);
 	}
+	public NFSHelper(int[] sssNos, String[] sssHosts, String[] sssRemotes, int uid, int gid, String username, String key) throws Exception {
+	    
+	    nfsc = new NFSMultiClient(sssNos, sssHosts, sssRemotes, uid, gid, username, null);
+	}
 
 	public void restore(String remotePath, String localPath) throws IOException, OncRpcException {
-	    if (!localPath.startsWith("/")) {
+	    if (!remotePath.startsWith("/")) {
 	        System.out.println("Please provide the path as an absolute path (starting with '/'), rooted at the NFS mount!");
 	        return;
 	    }
@@ -64,7 +69,10 @@ public class NFSHelper {
                                            .setDefault("test");
         parser.addArgument("-k", "--key").help("This is the AES key: generates key to that filename, if it doesn't exist yet")
                                          .setDefault("KEY");
+        parser.addArgument("-s", "--ssshost").help("These are the Shamir's Secret Sharing host specs (hostno:hostname:remoteDir)")
+                                             .action(Arguments.append());
         parser.addArgument("path").help("This/these is/are the path(s) to restore").nargs("+");
+        
         Namespace ns = null;
         try {
             ns = parser.parseArgs(args);
@@ -81,7 +89,43 @@ public class NFSHelper {
         String username   = System.getProperty("user.name");
         String key        = ns.getString("key");
         
-        NFSHelper nfsh   = new NFSHelper(host, remoteDir, uid, gid, username, key);
+        List<String> sssHostSpecs = ns.<String>getList("ssshost");
+        int[]    sssNos     = null;
+        String[] sssHosts   = null;
+        String[] sssRemotes = null;
+        if (sssHostSpecs != null) {
+            sssNos     = new int[sssHostSpecs.size()];
+            sssHosts   = new String[sssHostSpecs.size()];
+            sssRemotes = new String[sssHostSpecs.size()];
+            for (int i=0; i<sssHostSpecs.size();i++) {
+                String hostSpec = sssHostSpecs.get(i);
+                if (!hostSpec.contains(":")) {
+                    System.err.format("Bad host spec: %s\nMust be of the form 'hostNo:hostname:remoteDir'\nfor example: '0:localhost:/exports'\n", hostSpec);
+                    System.exit(1);
+                } else {
+                    sssNos[i]     = Integer.parseInt(hostSpec.split(":", 3)[0]);
+                    sssHosts[i]   = hostSpec.split(":", 3)[1];
+                    sssRemotes[i] = hostSpec.split(":", 3)[2];
+                }
+            }
+            System.out.println(String.join("\n", new String[] {
+                "","Using Shamir's Secret Sharing with multiple hosts.",
+                "--host and --remote arguments are ignored!",
+                "Using the following hosts (Important: host numbers must be consistent with numbers provided by watcher),",
+                "any three suffice to reconstruct the secret:"
+                }));
+            for (int i=0; i<sssHosts.length; i++) {
+                System.out.format("No: %d, host: %s, remote: %s\n", sssNos[i], sssHosts[i], sssRemotes[i]);
+            }
+        }
+        
+        NFSHelper nfsh = null;
+        if (sssHostSpecs != null) {
+            nfsh = new NFSHelper(sssNos, sssHosts, sssRemotes, uid, gid, username, key);
+        } else {
+            nfsh = new NFSHelper(host, remoteDir, uid, gid, username, key);
+        }
+        
         for (String path : ns.<String> getList("path")) {
             nfsh.restore(path, localDir);
         }

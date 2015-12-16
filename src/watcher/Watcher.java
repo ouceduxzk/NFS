@@ -14,7 +14,7 @@ import net.sourceforge.argparse4j.inf.*;
 import org.acplt.oncrpc.OncRpcException;
 import nfsv1.*;
 
-public class Watcher{
+public class Watcher {
 	private final Path localDir;
 	private final WatchService watcher;
 	private final HashMap<WatchKey, Path> keys;
@@ -35,7 +35,7 @@ public class Watcher{
 		nfsc = new NFSClient(host, remoteDir, uid, gid, username, keyData);
 	}
 	
-	public Watcher(String[] hosts, String[] remoteDirs, String localDir, boolean recursive, int uid, int gid, String username, String key) throws Exception {
+	public Watcher(int[] sssNos, String[] hosts, String[] remoteDirs, String localDir, boolean recursive, int uid, int gid, String username, String key) throws Exception {
 	    this.localDir  = Paths.get(localDir);
         this.watcher   = FileSystems.getDefault().newWatchService();
         this.keys      = new HashMap<WatchKey,Path>();
@@ -47,7 +47,7 @@ public class Watcher{
             register(this.localDir);
         }
         
-        nfsc = new NFSMultiClient(hosts, remoteDirs, uid, gid, username, keyData);
+        nfsc = new NFSMultiClient(sssNos, hosts, remoteDirs, uid, gid, username, keyData);
 	}
 
     /**
@@ -188,9 +188,11 @@ public class Watcher{
         int gid                   = NFSClient.getGID();
         String username           = System.getProperty("user.name");
         List<String> sssHostSpecs = ns.<String>getList("ssshost");
+        int[]    sssNos     = null;
         String[] sssHosts   = null;
         String[] sssRemotes = null;
         if (sssHostSpecs != null) {
+            sssNos     = new int[sssHostSpecs.size()];
             sssHosts   = new String[sssHostSpecs.size()];
             sssRemotes = new String[sssHostSpecs.size()];
             for (int i=0; i<sssHostSpecs.size();i++) {
@@ -199,6 +201,7 @@ public class Watcher{
                     System.err.format("Bad host spec: %s\nMust be of the form 'hostname:remoteDir'\nfor example: 'localhost:/exports'\n", hostSpec);
                     System.exit(1);
                 } else {
+                    sssNos[i]     = i;
                     sssHosts[i]   = hostSpec.split(":", 2)[0];
                     sssRemotes[i] = hostSpec.split(":", 2)[1];
                 }
@@ -210,9 +213,9 @@ public class Watcher{
                 "any three suffice to reconstruct the secret:"
                 }));
             for (int i=0; i<sssHosts.length; i++) {
-                System.out.format("No: %d, host: %s, remote: %s\n", i, sssHosts[i], sssRemotes[i]);
+                System.out.format("No: %d, host: %s, remote: %s\n", sssNos[i], sssHosts[i], sssRemotes[i]);
             }
-            new Watcher(sssHosts, sssRemotes, localDir, true, uid, gid, username, key).processEvents();
+            new Watcher(sssNos, sssHosts, sssRemotes, localDir, true, uid, gid, username, key).processEvents();
         } else {
             new Watcher(host, remoteDir, localDir, true, uid, gid, username, key).processEvents();
         }    
