@@ -1,21 +1,23 @@
 package sharing;
 
 import java.math.BigInteger;
+import java.nio.file.*;
+
 import javax.xml.bind.DatatypeConverter;
 import java.util.Random;
 
 public class ShamirSecret{
+    private final int k;
+    private final int n;
+    private BigInteger randomPrime;
+    
+    public ShamirSecret(int k, int n){
+        this.k = k;
+        this.n = n;
+    }
+	 
 
-	 public ShamirSecret(int k, int n){
-	 	ShamirSecret.k = k;
-	 	ShamirSecret.n = n;
-	 }
-	 private static int k;
-	 private static int n ;
-	
-	 private static BigInteger randomPrime;
-
-	 public static String[] split(String secret ){
+	 public String[] split(String secret ){
 	    assert k <= n;
 		byte[] tmp = secret.getBytes();
 		BigInteger secretBi = new BigInteger(tmp);
@@ -55,7 +57,6 @@ public class ShamirSecret{
 	 * generate a prime that is bounded by (0,p)
 	 */
 	private static BigInteger primeClip(BigInteger upperBound) {
-		// TODO Auto-generated method stub
 		while (true) {
 			BigInteger bi = new BigInteger(upperBound.bitLength(), new Random());
 			if (bi.compareTo(BigInteger.ZERO) >0 && bi.compareTo(upperBound) < 0) {
@@ -67,8 +68,12 @@ public class ShamirSecret{
 	/*
 	 * Given n points
 	 */
-
-	public static String recover(String[] parts){
+	public String recover(String[] parts, int[] which) {
+	    assert parts.length == which.length;
+	    if (parts.length < k) {
+	        System.err.format("Need at least %dk parts to reconstruct\n", k);
+	        return "";
+	    }
 	    BigInteger[] points = new BigInteger[parts.length];
 	    for (int i=0; i<parts.length; i++) {
 	        points[i] = new BigInteger(DatatypeConverter.parseHexBinary(parts[i]));
@@ -82,8 +87,8 @@ public class ShamirSecret{
 			// calcuate the lagrangian basis function
 			for (int j = 0; j < k ; j++) {
 				if (i != j) {
-					num = num.multiply(BigInteger.valueOf((-1 - j))).mod(randomPrime);
-					de =  de.multiply(BigInteger.valueOf((i-j))).mod(randomPrime);
+					num = num.multiply(BigInteger.valueOf(-which[j] - 1)).mod(randomPrime);
+					de  =  de.multiply(BigInteger.valueOf( which[i] - which[j])).mod(randomPrime);
 				}
 			}
 			// f(x) = \sum( y * basis)
@@ -94,10 +99,14 @@ public class ShamirSecret{
 		return new String(rec.toByteArray());
 	}
 
-	public static void main(String[] args){
+	public static void main(String[] args) throws Exception {
+	    int length = 150;
 		ShamirSecret ss = new ShamirSecret(3,10);
-		String[] tmp = ss.split("hi, i m zaikun, coming from Mars! Where is titus? ");
-		String secret = ss.recover(tmp);
+		String contents = new String(Files.readAllBytes(Paths.get("/usr/share/dict/words"))).substring(0, length); 
+		String[] parts  = ss.split(contents);
+		String[] tmp    = new String[] {parts[5], parts[3], parts[7]};
+		int[] which     = new int[] {5,3,7};
+		String secret   = ss.recover(tmp, which);
 		System.out.println(secret);
 	}
 }
