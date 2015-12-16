@@ -15,7 +15,7 @@ import javax.xml.bind.DatatypeConverter;
 
 import java.nio.file.*;
 
-public class NFSClient {
+public class NFSClient implements NFSClientInterface {
     private final int uid;
     private final int gid;
     private final String username;
