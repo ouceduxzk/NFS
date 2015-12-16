@@ -2,9 +2,14 @@ package nfsv1;
 
 import java.io.IOException;
 
+import javax.crypto.*;
+import javax.crypto.spec.*;
+import javax.xml.bind.DatatypeConverter;
+
 import org.acplt.oncrpc.OncRpcException;
 
 import client.nfs.fattr;
+import sharing.ShamirSecret;
 
 public class NFSMultiClient implements NFSClientInterface {
     private NFSClient[] clients;
@@ -16,6 +21,7 @@ public class NFSMultiClient implements NFSClientInterface {
         clients = new NFSClient[hosts.length];
         for (int i=0; i<hosts.length; i++) {
             clients[i] = new NFSClient(hosts[i], mntPoints[i], uid, gid, username, key);
+            clients[i].useAES = false;
         }
     }
     public boolean createFile(String path) throws IOException, OncRpcException {
@@ -26,8 +32,27 @@ public class NFSMultiClient implements NFSClientInterface {
     }
     
     public boolean writeFile(String path, String contents) throws IOException, OncRpcException  {
+        byte[] rawKey = NFSClient.generateKey();
+        SecretKeySpec key = new SecretKeySpec(rawKey, "AES");
+        IvParameterSpec iv  = new IvParameterSpec(DatatypeConverter.parseHexBinary("0123456789abcdef0123456789abcdef"));
+        Cipher encCipher = null;
+        String cipherText = null;
+        try {
+            encCipher = Cipher.getInstance("AES/CBC/PKCS5Padding");
+            encCipher.init(Cipher.ENCRYPT_MODE, key, iv);
+            cipherText = new String(encCipher.doFinal(contents.getBytes()));
+        } catch (Exception e) {
+            return false;
+        }
+        
         for (int i=0; i<clients.length; i++) {
-            if (!clients[i].writeFile(path, contents)) return false;
+            if (!clients[i].writeFile(path, cipherText)) return false;
+        }
+        ShamirSecret ss = new ShamirSecret(3, clients.length);
+        String[] keyParts = ss.split(DatatypeConverter.printHexBinary(rawKey));
+        for (int i=0; i<clients.length; i++) {
+            if (!clients[i].createFile(path + ".key")) return false;
+            if (!clients[i].writeFile(path + ".key", keyParts[i])) return false;
         }
         return true;
     }
@@ -63,6 +88,10 @@ public class NFSMultiClient implements NFSClientInterface {
     }
     
     public String readFile(String path) throws IOException, OncRpcException {
+        String[] keyParts = new String[clients.length];
+        for (int i=0; i<clients.length; i++) {
+            keyParts[i] = clients[i].readFile(path + ".key");
+        }
         String[] contents = new String[clients.length];
         for (int i=0; i<clients.length; i++) {
             contents[i] = clients[i].readFile(path);
@@ -72,9 +101,21 @@ public class NFSMultiClient implements NFSClientInterface {
             System.err.println("Inconsistency: Data may be lost!");
             return null;
             }
-            
         }
-        return contents[0];
+        ShamirSecret ss = new ShamirSecret(3, clients.length);
+        String rawKey = ss.recover(keyParts, nums);
+        SecretKeySpec key = new SecretKeySpec(DatatypeConverter.parseHexBinary(rawKey), "AES");
+        IvParameterSpec iv  = new IvParameterSpec(DatatypeConverter.parseHexBinary("0123456789abcdef0123456789abcdef"));
+        Cipher decCipher = null;
+        String plainText = null;
+        try {
+            decCipher = Cipher.getInstance("AES/CBC/PKCS5Padding");
+            decCipher.init(Cipher.DECRYPT_MODE, key, iv);
+            plainText = new String(decCipher.doFinal(contents[0].getBytes()));
+        } catch (Exception e) {
+            return null;
+        }
+        return plainText;
     }
     
 }
