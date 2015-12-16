@@ -1,4 +1,5 @@
 bin
 test
 *.class
+.DS_Store
 KEY
