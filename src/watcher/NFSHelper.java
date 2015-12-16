@@ -54,7 +54,7 @@ public class NFSHelper {
 	    switch (attributes.type) {
 	        case ftype.NFREG:
 	            String contents = nfsc.readFile(remotePath);
-	            Files.write(Paths.get(entity), contents.getBytes(), StandardOpenOption.WRITE, StandardOpenOption.CREATE_NEW, StandardOpenOption.TRUNCATE_EXISTING);
+	            Files.write(Paths.get(entity), contents.getBytes(), StandardOpenOption.WRITE, StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING);
 	            break;
 	        case ftype.NFDIR:
 	            new File(entity).mkdir();

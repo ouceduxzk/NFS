@@ -532,7 +532,7 @@ public class NFSClient {
     }
     
     public static void writeKey(byte[] key, String filename) throws IOException {
-        Files.write(Paths.get(filename), key, StandardOpenOption.WRITE, StandardOpenOption.CREATE_NEW, StandardOpenOption.TRUNCATE_EXISTING);
+        Files.write(Paths.get(filename), key, StandardOpenOption.WRITE, StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING);
     }
     
     public static byte[] readKey(String filename) throws IOException {
