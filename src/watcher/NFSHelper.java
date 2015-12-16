@@ -17,18 +17,8 @@ import nfsv1.NFSClient;
  */
 
 public class NFSHelper {
-    private final String host;
-    private final String mountDir;
-    private final int uid;
-    private final int gid;
-    private final String username;
 	private final NFSClient nfsc;
 	public NFSHelper(String host, String mountDir, int uid, int gid, String username, String key) throws Exception {
-		this.host     = host;
-		this.mountDir = mountDir;
-		this.uid      = uid;
-		this.gid      = gid;
-		this.username = username;
 		byte[] keyData = NFSClient.readOrGenerateKey(key);
 		
 		nfsc = new NFSClient(host, mountDir, uid, gid, username, keyData);
