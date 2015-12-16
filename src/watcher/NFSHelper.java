@@ -36,10 +36,13 @@ public class NFSHelper {
 		this.username = username;
 		
 		nfsc = new NFSClient(host, mountDir, uid, gid, username, null);
-		nfsc.useAES = false;
 	}
 
 	public void restore(String remotePath, String localPath) throws IOException, OncRpcException {
+	    if (!localPath.startsWith("/")) {
+	        System.out.println("Please provide the path as an absolute path (starting with '/'), rooted at the NFS mount!");
+	        return;
+	    }
 	    System.out.format("Restore %s at %s\n", remotePath, localPath);
 	    fattr attributes = nfsc.getAttr(remotePath);
 	    if (attributes == null) {
@@ -47,17 +50,17 @@ public class NFSHelper {
 	        return;
 	    }
 	    List<String> parts = Arrays.asList(remotePath.split("/"));
-	    String dir = Paths.get(localPath).resolve(String.join("/", parts.subList(1, parts.size() -1))).toString();
-	    String entity = Paths.get(localPath).resolve(String.join("/", parts.subList(1, parts.size()))).toString();
+	    Path dir = Paths.get(localPath).resolve(String.join("/", parts.subList(1, parts.size() -1)));
+	    Path entity = Paths.get(localPath).resolve(String.join("/", parts.subList(1, parts.size())));
 	    System.out.format("Creating '%s' directory\n", dir);
-	    new File(dir).mkdirs();
+	    Files.createDirectories(dir);
 	    switch (attributes.type) {
 	        case ftype.NFREG:
 	            String contents = nfsc.readFile(remotePath);
-	            Files.write(Paths.get(entity), contents.getBytes(), StandardOpenOption.WRITE, StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING);
+	            Files.write(entity, contents.getBytes(), StandardOpenOption.WRITE, StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING);
 	            break;
 	        case ftype.NFDIR:
-	            new File(entity).mkdir();
+	            Files.createDirectories(entity);
 	            break;
 	        default:
 	            System.err.format("Unsupported file type: %d\n", attributes.type);
@@ -68,7 +71,7 @@ public class NFSHelper {
 	public static void main(String[] args) throws Exception {
         String host       = args.length > 1 ? args[0] : "localhost";
         String mountDir   = args.length > 1 ? args[1] : "/exports";
-        String remotePath = args.length > 1 ? args[2] : "/a/b/c";
+        String remotePath = args.length > 1 ? args[2] : "/a/b/c/d/e/f/";
         String localPath  = args.length > 1 ? args[3] : "/Users/cornelius/Dropbox/USI courses/Eclipse work space/DS_project/NFS/test";
         int uid           = NFSClient.getUID();
         int gid           = NFSClient.getGID();
