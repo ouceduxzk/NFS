@@ -87,8 +87,8 @@ public class NFSMultiClient implements NFSClientInterface {
             attributes[i] = clients[i].getAttr(path);
         }
         for (int i=1; i<attributes.length; i++) {
-            if ((attributes[i].size == attributes[0].size)
-             || (attributes[i].type == attributes[0].type)) {
+            if ((attributes[i].size != attributes[0].size)
+             || (attributes[i].type != attributes[0].type)) {
             System.err.println("Inconsistency: Data may be lost!");
             return null;
             }
@@ -107,9 +107,9 @@ public class NFSMultiClient implements NFSClientInterface {
             contents[i] = clients[i].readFile(path);
         }
         for (int i=1; i<contents.length; i++) {
-            if ((contents[i].equals(contents[0]))) {
-            System.err.println("Inconsistency: Data may be lost!");
-            return null;
+            if (!contents[i].equals(contents[0])) {
+            	System.err.println("Inconsistency: Data may be lost!");
+            	return null;
             }
         }
         ShamirSecret ss = new ShamirSecret(3, clients.length, prime);
