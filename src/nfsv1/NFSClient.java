@@ -25,7 +25,7 @@ public class NFSClient implements NFSClientInterface {
     private final Cipher decCipher;
     private final SecretKeySpec key;
     private final IvParameterSpec iv;
-    private static final int CHUNKSIZE = 1 << 12;
+    private static final int CHUNKSIZE = 1 << 10;
     public boolean useAES;
   
     public NFSClient(String host, String mntPoint, int uid, int gid, String username, byte[] key) throws Exception {
