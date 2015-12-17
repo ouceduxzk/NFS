@@ -60,14 +60,14 @@ public class NFSMultiClient implements NFSClientInterface {
         for (int i=0; i<clients.length; i++) {
             if (!clients[i].rawWriteFile(path, cipherText)) return false;
         }
-        System.out.format("Storing rawKey = %s\n", DatatypeConverter.printHexBinary(rawKey));
+        System.out.format("Storing rawKey = \"%s\"\n", DatatypeConverter.printHexBinary(rawKey));
         String[] keyParts = ss.split(DatatypeConverter.printHexBinary(rawKey));
         String keyPath = path + ".key";
         for (int i=0; i<clients.length; i++) {
         	String part = keyParts[i];
         	clients[i].removeFile(keyPath);
         	clients[i].createFile(keyPath);
-            System.out.format("Storing keyPart[%d] = %s\n", i, part);
+            System.out.format("Storing keyPart[%d] = \"%s\"\n", i, part);
             if (!clients[i].writeFile(keyPath, part)) return false;
         }
         return true;
@@ -106,7 +106,7 @@ public class NFSMultiClient implements NFSClientInterface {
         String[] keyParts = new String[clients.length];
         for (int i=0; i<clients.length; i++) {
         	keyParts[i] = clients[i].readFile(path + ".key");
-            System.out.format("Restored keyPart[%d] = %s\n", nums[i], keyParts[i]);
+            System.out.format("Restored keyPart[%d] = \"%s\"\n", nums[i], keyParts[i]);
         }
         String[] contents = new String[clients.length];
         for (int i=0; i<clients.length; i++) {
@@ -119,7 +119,7 @@ public class NFSMultiClient implements NFSClientInterface {
             }
         }
         String rawKey = ss.recover(keyParts, nums);
-        System.out.format("Restored rawKey = %s\n", rawKey);
+        System.out.format("Restored rawKey = \"%s\"\n", rawKey);
         SecretKeySpec key = new SecretKeySpec(DatatypeConverter.parseHexBinary(rawKey), "AES");
         IvParameterSpec iv  = new IvParameterSpec(DatatypeConverter.parseHexBinary("0123456789abcdef0123456789abcdef"));
         Cipher decCipher = null;
