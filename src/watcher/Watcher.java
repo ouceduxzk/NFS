@@ -116,10 +116,18 @@ public class Watcher {
                                 } catch (Exception e) {}
                             });
                         } else if (Files.isRegularFile(localPath)) {
-                            nfsc.createFile(remotePath);
+                            if (!nfsc.createFile(remotePath)) {
+                                System.err.format("Could not create remote file: %s\n", remotePath);
+                                break;
+                            }
                             String contents = readFile(localPath);
-                            nfsc.writeFile(remotePath, contents);
-                            System.out.format("Wrote %s\n", localPath);
+                            if (contents.length() > 0) {
+                                if (!nfsc.writeFile(remotePath, contents)) {
+                                    System.err.format("Could not write to remote file: %s\n", remotePath);
+                                }
+                                System.out.format("Wrote %s\n", localPath);
+                                break;
+                            }
                         }
                         break;
                     case "ENTRY_DELETE":
@@ -175,6 +183,9 @@ public class Watcher {
         									  .setDefault("PRIME");
 	    parser.addArgument("-s", "--ssshost").help("These are the Shamir's Secret Sharing host specs (hostname:remoteDir)")
 	                                         .action(Arguments.append());
+	    parser.addArgument("-u", "--uid").help("The user ID").setDefault(NFSClient.getUID()).type(Integer.class);
+        parser.addArgument("-g", "--gid").help("The group ID").setDefault(NFSClient.getGID()).type(Integer.class);
+        parser.addArgument("-n", "--username").help("The username").setDefault(System.getProperty("user.name"));
 	    Namespace ns = null;
 	    try {
 	        ns = parser.parseArgs(args);
@@ -183,14 +194,14 @@ public class Watcher {
 	        System.exit(1);
 	    }
         // parse arguments
-        String host               = ns.getString("host");
-        String remoteDir          = ns.getString("remote");
-        String localDir           = ns.getString("local");
-        String key                = ns.getString("key");
-        String prime              = ns.getString("sssprime");
-        int uid                   = NFSClient.getUID();
-        int gid                   = NFSClient.getGID();
-        String username           = System.getProperty("user.name");
+        String host         = ns.getString("host");
+        String remoteDir    = ns.getString("remote");
+        String localDir     = ns.getString("local");
+        String key          = ns.getString("key");
+        String prime        = ns.getString("sssprime");
+        int uid             = ns.getInt("uid");
+        int gid             = ns.getInt("gid");
+        String username     = ns.getString("username");
         List<String> sssHostSpecs = ns.<String>getList("ssshost");
         int[]    sssNos     = null;
         String[] sssHosts   = null;

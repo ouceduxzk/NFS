@@ -22,7 +22,7 @@ public class ShamirSecret{
     }
 	 
     public static BigInteger generatePrime() {
-    	return generatePrime(128);
+    	return generatePrime(256);
     }
     
     public static BigInteger generatePrime(int length) {

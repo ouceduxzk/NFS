@@ -387,6 +387,10 @@ public class NFSClient implements NFSClientInterface {
 //    attrstat
 //    NFSPROC_WRITE(writeargs) = 8;
     public synchronized boolean writeFile(fhandle file, byte [] contents) throws IOException, OncRpcException {
+        if (file == null) {
+            System.err.println("Cannot write to null fhandle");
+            return false;
+        }
         if (useAES) {
             try {
                 contents = encCipher.doFinal(contents);

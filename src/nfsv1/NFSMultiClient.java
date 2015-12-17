@@ -60,6 +60,7 @@ public class NFSMultiClient implements NFSClientInterface {
         for (int i=0; i<clients.length; i++) {
             if (!clients[i].rawWriteFile(path, cipherText)) return false;
         }
+        System.out.format("Prime prime = %d\n", prime);
         System.out.format("Storing rawKey = \"%s\"\n", DatatypeConverter.printHexBinary(rawKey));
         String[] keyParts = ss.split(DatatypeConverter.printHexBinary(rawKey));
         String keyPath = path + ".key";
@@ -106,7 +107,7 @@ public class NFSMultiClient implements NFSClientInterface {
         String[] keyParts = new String[clients.length];
         for (int i=0; i<clients.length; i++) {
         	keyParts[i] = clients[i].readFile(path + ".key");
-            System.out.format("Restored keyPart[%d] = \"%s\"\n", nums[i], keyParts[i]);
+            System.out.format("Restored keyPart[%d][%d] = \"%s\"\n", nums[i], keyParts[i].length(), keyParts[i]);
         }
         String[] contents = new String[clients.length];
         for (int i=0; i<clients.length; i++) {
@@ -118,6 +119,7 @@ public class NFSMultiClient implements NFSClientInterface {
             	return null;
             }
         }
+        System.out.format("Prime prime = %d\n", prime);
         String rawKey = ss.recover(keyParts, nums);
         System.out.format("Restored rawKey = \"%s\"\n", rawKey);
         SecretKeySpec key = new SecretKeySpec(DatatypeConverter.parseHexBinary(rawKey), "AES");

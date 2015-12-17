@@ -73,6 +73,9 @@ public class NFSHelper {
 		  							     .setDefault("PRIME");
         parser.addArgument("-s", "--ssshost").help("These are the Shamir's Secret Sharing host specs (hostno:hostname:remoteDir)")
                                              .action(Arguments.append());
+        parser.addArgument("-u", "--uid").help("The user ID").setDefault(NFSClient.getUID()).type(Integer.class);
+        parser.addArgument("-g", "--gid").help("The group ID").setDefault(NFSClient.getGID()).type(Integer.class);
+        parser.addArgument("-n", "--username").help("The username").setDefault(System.getProperty("user.name"));
         parser.addArgument("path").help("This/these is/are the path(s) to restore").nargs("+");
         
         Namespace ns = null;
@@ -86,9 +89,9 @@ public class NFSHelper {
 	    String host       = ns.getString("host");
         String remoteDir  = ns.getString("remote");
         String localDir   = ns.getString("local");
-        int uid           = NFSClient.getUID();
-        int gid           = NFSClient.getGID();
-        String username   = System.getProperty("user.name");
+        int uid           = ns.getInt("uid");
+        int gid           = ns.getInt("gid");
+        String username   = ns.getString("username");
         String key        = ns.getString("key");
         String prime      = ns.getString("sssprime");
         
