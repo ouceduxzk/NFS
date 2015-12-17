@@ -2,6 +2,7 @@ README
 ======
 Group Members: Zaikun Xu
 			   Titus von Köller
+			   Arun K. Verma
 
 BUILD INSTRUCTIONS
 ------------------
