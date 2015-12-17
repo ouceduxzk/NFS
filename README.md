@@ -95,7 +95,7 @@ $ sudo apt-get install tree
 $ sudo apt-get install nfs-common nfs-kernel-server	
 $ cat /etc/exports
 $ showmount -e
-$ cd /tmp && mkdir nfs-mount && sudo mount 192.168.56.101:/exports/s0 nfs-mount && sudo touch /exports/s0/abc && tree nfs-mount
+$ cd /tmp && mkdir nfs-mount && sudo mount 192.168.56.101:/exports/s0 nfs-mount && sudo touch "/exports/s0/abc.$(date)" && tree nfs-mount
 $ sudo chown -R $(whoami):$(whoami) /exports && sudo chmod -R ugo+rwX /exports
 $ ls -1al /exports/*  ### have to all be owned by user
 
