@@ -15,13 +15,14 @@ public class ShamirSecret{
         this.k = k;
         this.n = n;
         if (prime == null) {
+        	System.out.println("Generating new prime");
         	prime = generatePrime();
         }
         this.randomPrime = prime;
     }
 	 
     public static BigInteger generatePrime() {
-    	return generatePrime(256);
+    	return generatePrime(128);
     }
     
     public static BigInteger generatePrime(int length) {

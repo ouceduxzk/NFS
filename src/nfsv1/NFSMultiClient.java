@@ -18,6 +18,7 @@ public class NFSMultiClient implements NFSClientInterface {
     private NFSClient[] clients;
     private int[] nums;
     private final BigInteger prime;
+    private final ShamirSecret ss;
     
     public NFSMultiClient(int[] nums, String[] hosts, String[] mntPoints, int uid, int gid, String username, String prime) throws Exception {
         assert hosts.length == mntPoints.length;
@@ -33,6 +34,7 @@ public class NFSMultiClient implements NFSClientInterface {
             clients[i] = new NFSClient(hosts[i], mntPoints[i], uid, gid, username, null);
             clients[i].useAES = false;
         }
+        ss = new ShamirSecret(3, clients.length, this.prime);
     }
     public boolean createFile(String path) throws IOException, OncRpcException {
         for (int i=0; i<clients.length; i++) {
@@ -44,25 +46,29 @@ public class NFSMultiClient implements NFSClientInterface {
     public boolean writeFile(String path, String contents) throws IOException, OncRpcException  {
         byte[] rawKey = NFSClient.generateKey();
         SecretKeySpec key = new SecretKeySpec(rawKey, "AES");
-        IvParameterSpec iv  = new IvParameterSpec(DatatypeConverter.parseHexBinary("0123456789abcdef0123456789abcdef"));
+        IvParameterSpec iv = new IvParameterSpec(DatatypeConverter.parseHexBinary("0123456789abcdef0123456789abcdef"));
         Cipher encCipher = null;
-        String cipherText = null;
+        byte[] cipherText = null;
         try {
             encCipher = Cipher.getInstance("AES/CBC/PKCS5Padding");
             encCipher.init(Cipher.ENCRYPT_MODE, key, iv);
-            cipherText = new String(encCipher.doFinal(contents.getBytes()));
+            cipherText = encCipher.doFinal(contents.getBytes());
         } catch (Exception e) {
             return false;
         }
         
         for (int i=0; i<clients.length; i++) {
-            if (!clients[i].writeFile(path, cipherText)) return false;
+            if (!clients[i].rawWriteFile(path, cipherText)) return false;
         }
-        ShamirSecret ss = new ShamirSecret(3, clients.length, prime);
+        System.out.format("Storing rawKey = %s\n", DatatypeConverter.printHexBinary(rawKey));
         String[] keyParts = ss.split(DatatypeConverter.printHexBinary(rawKey));
+        String keyPath = path + ".key";
         for (int i=0; i<clients.length; i++) {
-            if (!clients[i].createFile(path + ".key")) return false;
-            if (!clients[i].writeFile(path + ".key", keyParts[i])) return false;
+        	String part = keyParts[i];
+        	clients[i].removeFile(keyPath);
+        	clients[i].createFile(keyPath);
+            System.out.format("Storing keyPart[%d] = %s\n", i, part);
+            if (!clients[i].writeFile(keyPath, part)) return false;
         }
         return true;
     }
@@ -87,10 +93,9 @@ public class NFSMultiClient implements NFSClientInterface {
             attributes[i] = clients[i].getAttr(path);
         }
         for (int i=1; i<attributes.length; i++) {
-            if ((attributes[i].size != attributes[0].size)
-             || (attributes[i].type != attributes[0].type)) {
-            System.err.println("Inconsistency: Data may be lost!");
-            return null;
+            if (attributes[i].type != attributes[0].type) {
+	            System.err.println("Inconsistency: Data may be lost!");
+	            return null;
             }
             
         }
@@ -100,7 +105,8 @@ public class NFSMultiClient implements NFSClientInterface {
     public String readFile(String path) throws IOException, OncRpcException {
         String[] keyParts = new String[clients.length];
         for (int i=0; i<clients.length; i++) {
-            keyParts[i] = clients[i].readFile(path + ".key");
+        	keyParts[i] = clients[i].readFile(path + ".key");
+            System.out.format("Restored keyPart[%d] = %s\n", nums[i], keyParts[i]);
         }
         String[] contents = new String[clients.length];
         for (int i=0; i<clients.length; i++) {
@@ -112,8 +118,8 @@ public class NFSMultiClient implements NFSClientInterface {
             	return null;
             }
         }
-        ShamirSecret ss = new ShamirSecret(3, clients.length, prime);
         String rawKey = ss.recover(keyParts, nums);
+        System.out.format("Restored rawKey = %s\n", rawKey);
         SecretKeySpec key = new SecretKeySpec(DatatypeConverter.parseHexBinary(rawKey), "AES");
         IvParameterSpec iv  = new IvParameterSpec(DatatypeConverter.parseHexBinary("0123456789abcdef0123456789abcdef"));
         Cipher decCipher = null;
@@ -121,8 +127,10 @@ public class NFSMultiClient implements NFSClientInterface {
         try {
             decCipher = Cipher.getInstance("AES/CBC/PKCS5Padding");
             decCipher.init(Cipher.DECRYPT_MODE, key, iv);
-            plainText = new String(decCipher.doFinal(contents[0].getBytes()));
+            byte[] rawContents = clients[0].rawReadFile(path);
+            plainText = new String(decCipher.doFinal(rawContents));
         } catch (Exception e) {
+        	e.printStackTrace();
             return null;
         }
         return plainText;

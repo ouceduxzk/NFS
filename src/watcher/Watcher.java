@@ -119,6 +119,7 @@ public class Watcher {
                             nfsc.createFile(remotePath);
                             String contents = readFile(localPath);
                             nfsc.writeFile(remotePath, contents);
+                            System.out.format("Wrote %s\n", localPath);
                         }
                         break;
                     case "ENTRY_DELETE":
@@ -131,6 +132,7 @@ public class Watcher {
                             nfsc.createFile(remotePath);
                             String contents = readFile(localPath);
                             nfsc.writeFile(remotePath, contents);
+                            System.out.format("Wrote %s\n", localPath);
                         }
                         break;
                     case "OVERFLOW":
