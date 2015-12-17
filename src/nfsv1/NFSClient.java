@@ -318,7 +318,7 @@ public class NFSClient implements NFSClientInterface {
 //    readres
 //    NFSPROC_READ(readargs) = 6;
 
-    public synchronized String readFile(fhandle file) throws IOException, OncRpcException {
+    public synchronized byte[] readFile(fhandle file) throws IOException, OncRpcException {
         readargs args = new readargs();
         args.file = file;
         args.offset = 0;
@@ -326,28 +326,32 @@ public class NFSClient implements NFSClientInterface {
         readres out = nfs.NFSPROC_READ_2(args);
         if (out.status != stat.NFS_OK) {
             errorMessage(out.status);
-            return "";
+            return null;
         }
         if (useAES) {
             try {
-                return new String(decCipher.doFinal(out.read.data.value));
+                return decCipher.doFinal(out.read.data.value);
             } catch (Exception ex) {
                 System.out.println("Tough luck: Decryption failed, your files might be lost forever!");
                 System.exit(1);
             }
         }
-        return new String(out.read.data.value);
+        return out.read.data.value;
     }
     
     public synchronized String readFile(fhandle folder, filename filename) throws IOException, OncRpcException {;
-        return readFile(lookup(folder, filename));
+        return new String(readFile(lookup(folder, filename)));
     }
     
     public synchronized String readFile(fhandle folder, String filename) throws IOException, OncRpcException {
-        return readFile(folder, new filename(filename));
+        return new String(readFile(folder, new filename(filename)));
     }
     
     public synchronized String readFile(String path) throws IOException, OncRpcException {
+        return new String(readFile(lookup(path)));
+    }
+    
+    public synchronized byte[] rawReadFile(String path) throws IOException, OncRpcException {
         return readFile(lookup(path));
     }
     
@@ -381,6 +385,10 @@ public class NFSClient implements NFSClientInterface {
         return out.status == stat.NFS_OK;
     }
     
+    public synchronized boolean writeFile(fhandle folder, filename filename, byte[] contents) throws IOException, OncRpcException {
+        return writeFile(lookup(folder,filename), contents);
+    }
+    
     public synchronized boolean writeFile(fhandle folder, filename filename, String contents) throws IOException, OncRpcException {
         return writeFile(lookup(folder,filename), contents.getBytes());
     }
@@ -394,6 +402,10 @@ public class NFSClient implements NFSClientInterface {
         return writeFile(p.dir, p.name, contents);
     }
     
+    public synchronized boolean rawWriteFile(String path, byte[] contents) throws IOException, OncRpcException {
+        Parts p = lookup_parts(path);
+        return writeFile(p.dir, p.name, contents);
+    }
     
     
 //  removeDir  NFSPROC_RMDIR_2
