@@ -35,11 +35,10 @@ public class Watcher {
 		nfsc = new NFSClient(host, remoteDir, uid, gid, username, keyData);
 	}
 	
-	public Watcher(int[] sssNos, String[] hosts, String[] remoteDirs, String localDir, boolean recursive, int uid, int gid, String username, String key) throws Exception {
+	public Watcher(int[] sssNos, String[] hosts, String[] remoteDirs, String localDir, boolean recursive, int uid, int gid, String username, String prime) throws Exception {
 	    this.localDir  = Paths.get(localDir);
         this.watcher   = FileSystems.getDefault().newWatchService();
         this.keys      = new HashMap<WatchKey,Path>();
-        byte[] keyData = NFSClient.readOrGenerateKey(key);
         
         if (recursive) {
             registerAll(this.localDir);
@@ -47,7 +46,7 @@ public class Watcher {
             register(this.localDir);
         }
         
-        nfsc = new NFSMultiClient(sssNos, hosts, remoteDirs, uid, gid, username, keyData);
+        nfsc = new NFSMultiClient(sssNos, hosts, remoteDirs, uid, gid, username, prime);
 	}
 
     /**
@@ -170,6 +169,8 @@ public class Watcher {
 	                                            .setDefault("test");
 	    parser.addArgument("-k", "--key").help("This is the AES key: generates key to that filename, if it doesn't exist yet")
 	                                     .setDefault("KEY");
+	    parser.addArgument("-p", "--sssprime").help("These are the Shamir's Secret Sharing prime number filename; writes generated prime, if it doesn't exist yet")
+        									  .setDefault("PRIME");
 	    parser.addArgument("-s", "--ssshost").help("These are the Shamir's Secret Sharing host specs (hostname:remoteDir)")
 	                                         .action(Arguments.append());
 	    Namespace ns = null;
@@ -184,6 +185,7 @@ public class Watcher {
         String remoteDir          = ns.getString("remote");
         String localDir           = ns.getString("local");
         String key                = ns.getString("key");
+        String prime              = ns.getString("prime");
         int uid                   = NFSClient.getUID();
         int gid                   = NFSClient.getGID();
         String username           = System.getProperty("user.name");
@@ -215,7 +217,7 @@ public class Watcher {
             for (int i=0; i<sssHosts.length; i++) {
                 System.out.format("No: %d, host: %s, remote: %s\n", sssNos[i], sssHosts[i], sssRemotes[i]);
             }
-            new Watcher(sssNos, sssHosts, sssRemotes, localDir, true, uid, gid, username, key).processEvents();
+            new Watcher(sssNos, sssHosts, sssRemotes, localDir, true, uid, gid, username, prime).processEvents();
         } else {
             new Watcher(host, remoteDir, localDir, true, uid, gid, username, key).processEvents();
         }    

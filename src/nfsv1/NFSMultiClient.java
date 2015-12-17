@@ -1,6 +1,9 @@
 package nfsv1;
 
 import java.io.IOException;
+import java.math.BigInteger;
+import java.nio.*;
+import java.nio.file.*;
 
 import javax.crypto.*;
 import javax.crypto.spec.*;
@@ -14,13 +17,20 @@ import sharing.ShamirSecret;
 public class NFSMultiClient implements NFSClientInterface {
     private NFSClient[] clients;
     private int[] nums;
+    private final BigInteger prime;
     
-    public NFSMultiClient(int[] nums, String[] hosts, String[] mntPoints, int uid, int gid, String username, byte[] key) throws Exception {
+    public NFSMultiClient(int[] nums, String[] hosts, String[] mntPoints, int uid, int gid, String username, String prime) throws Exception {
         assert hosts.length == mntPoints.length;
+        Path primePath = Paths.get(prime);
+        if (!Files.exists(primePath)) {
+        	BigInteger new_prime = ShamirSecret.generatePrime();
+        	Files.write(primePath, DatatypeConverter.printHexBinary(new_prime.toByteArray()).getBytes(), StandardOpenOption.WRITE, StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING);
+        }
+        this.prime = new BigInteger(DatatypeConverter.parseHexBinary(new String(Files.readAllBytes(primePath))));
         this.nums = nums;
         clients = new NFSClient[hosts.length];
         for (int i=0; i<hosts.length; i++) {
-            clients[i] = new NFSClient(hosts[i], mntPoints[i], uid, gid, username, key);
+            clients[i] = new NFSClient(hosts[i], mntPoints[i], uid, gid, username, null);
             clients[i].useAES = false;
         }
     }
@@ -48,7 +58,7 @@ public class NFSMultiClient implements NFSClientInterface {
         for (int i=0; i<clients.length; i++) {
             if (!clients[i].writeFile(path, cipherText)) return false;
         }
-        ShamirSecret ss = new ShamirSecret(3, clients.length);
+        ShamirSecret ss = new ShamirSecret(3, clients.length, prime);
         String[] keyParts = ss.split(DatatypeConverter.printHexBinary(rawKey));
         for (int i=0; i<clients.length; i++) {
             if (!clients[i].createFile(path + ".key")) return false;
@@ -102,7 +112,7 @@ public class NFSMultiClient implements NFSClientInterface {
             return null;
             }
         }
-        ShamirSecret ss = new ShamirSecret(3, clients.length);
+        ShamirSecret ss = new ShamirSecret(3, clients.length, prime);
         String rawKey = ss.recover(keyParts, nums);
         SecretKeySpec key = new SecretKeySpec(DatatypeConverter.parseHexBinary(rawKey), "AES");
         IvParameterSpec iv  = new IvParameterSpec(DatatypeConverter.parseHexBinary("0123456789abcdef0123456789abcdef"));

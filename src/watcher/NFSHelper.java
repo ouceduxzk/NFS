@@ -24,9 +24,9 @@ public class NFSHelper {
 		
 		nfsc = new NFSClient(host, mountDir, uid, gid, username, keyData);
 	}
-	public NFSHelper(int[] sssNos, String[] sssHosts, String[] sssRemotes, int uid, int gid, String username, String key) throws Exception {
+	public NFSHelper(int[] sssNos, String[] sssHosts, String[] sssRemotes, int uid, int gid, String username, String prime) throws Exception {
 	    
-	    nfsc = new NFSMultiClient(sssNos, sssHosts, sssRemotes, uid, gid, username, null);
+	    nfsc = new NFSMultiClient(sssNos, sssHosts, sssRemotes, uid, gid, username, prime);
 	}
 
 	public void restore(String remotePath, String localPath) throws IOException, OncRpcException {
@@ -69,6 +69,8 @@ public class NFSHelper {
                                            .setDefault("test");
         parser.addArgument("-k", "--key").help("This is the AES key: generates key to that filename, if it doesn't exist yet")
                                          .setDefault("KEY");
+        parser.addArgument("-p", "--sssprime").help("These are the Shamir's Secret Sharing prime number filename; writes generated prime, if it doesn't exist yet")
+		  							     .setDefault("PRIME");
         parser.addArgument("-s", "--ssshost").help("These are the Shamir's Secret Sharing host specs (hostno:hostname:remoteDir)")
                                              .action(Arguments.append());
         parser.addArgument("path").help("This/these is/are the path(s) to restore").nargs("+");
@@ -88,6 +90,7 @@ public class NFSHelper {
         int gid           = NFSClient.getGID();
         String username   = System.getProperty("user.name");
         String key        = ns.getString("key");
+        String prime      = ns.getString("prime");
         
         List<String> sssHostSpecs = ns.<String>getList("ssshost");
         int[]    sssNos     = null;
@@ -121,7 +124,7 @@ public class NFSHelper {
         
         NFSHelper nfsh = null;
         if (sssHostSpecs != null) {
-            nfsh = new NFSHelper(sssNos, sssHosts, sssRemotes, uid, gid, username, key);
+            nfsh = new NFSHelper(sssNos, sssHosts, sssRemotes, uid, gid, username, prime);
         } else {
             nfsh = new NFSHelper(host, remoteDir, uid, gid, username, key);
         }
