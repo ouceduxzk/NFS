@@ -355,6 +355,17 @@ public class NFSClient implements NFSClientInterface {
         return readFile(lookup(path));
     }
     
+    public static List<byte[]> chunk(byte[] contents, int chunksize) {
+    	List<byte[]> chunks = new ArrayList<byte[]>();
+    	int numChunks = (contents.length / chunksize) + 1;
+    	for (int i=0; i < numChunks; ++i) {
+    		int from = i * chunksize;
+    		int to   = Integer.min((i+1) * chunksize, contents.length); 
+    		chunks.add(Arrays.copyOfRange(contents, from, to));
+    	}
+    	return chunks;
+    }
+    
 //  writeFile  
 //    struct writeargs {
 //        fhandle file;
@@ -374,15 +385,20 @@ public class NFSClient implements NFSClientInterface {
                 System.exit(1);
             }
         }
-        writeargs args = new writeargs();
-        args.file = file;
-        args.offset = 0;
-        args.data = new nfsdata(contents);
-        attrstat out = nfs.NFSPROC_WRITE_2(args);
-        if (out.status != stat.NFS_OK) {
-            errorMessage(out.status);
-        } 
-        return out.status == stat.NFS_OK;
+        int chunksize=1 << 12;
+        List<byte[]> chunks = chunk(contents, chunksize);
+        for (int i=0; i < chunks.size(); ++i) {
+	        writeargs args = new writeargs();
+	        args.file = file;
+	        args.offset = i * chunksize;
+	        args.data = new nfsdata(chunks.get(i));
+	        attrstat out = nfs.NFSPROC_WRITE_2(args);
+	        if (out.status != stat.NFS_OK) {
+	            errorMessage(out.status);
+	            return false;
+	        }
+        }
+        return true;
     }
     
     public synchronized boolean writeFile(fhandle folder, filename filename, byte[] contents) throws IOException, OncRpcException {
