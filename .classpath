@@ -5,6 +5,6 @@
 	<classpathentry kind="lib" path="lib/jrpcgen.jar"/>
 	<classpathentry kind="lib" path="lib/oncrpc.jar"/>
 	<classpathentry kind="lib" path="lib/portmap.jar"/>
-	<classpathentry kind="lib" path="/Users/cornelius/Dropbox/USI courses/Eclipse work space/DS_project/NFS/lib/argparse4j-0.6.0.jar"/>
+	<classpathentry kind="lib" path="lib/argparse4j-0.6.0.jar"/>
 	<classpathentry kind="output" path="bin"/>
 </classpath>

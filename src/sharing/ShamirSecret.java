@@ -11,20 +11,31 @@ public class ShamirSecret{
     private final int n;
     private BigInteger randomPrime;
     
-    public ShamirSecret(int k, int n){
+    public ShamirSecret(int k, int n, BigInteger prime){
         this.k = k;
         this.n = n;
+        if (prime == null) {
+        	System.out.println("Generating new prime");
+        	prime = generatePrime();
+        }
+        this.randomPrime = prime;
     }
 	 
-
-	 public String[] split(String secret ){
+    public static BigInteger generatePrime() {
+    	return generatePrime(256);
+    }
+    
+    public static BigInteger generatePrime(int length) {
+		Random rnd = new Random();
+		return BigInteger.probablePrime(length, rnd);
+    }
+    
+	 public String[] split(String secret){
 	    assert k <= n;
+	    assert secret.length() < 256; // hardcode prime length 256
 		byte[] tmp = secret.getBytes();
 		BigInteger secretBi = new BigInteger(tmp);
 		// generate a random prime
-		int len = secretBi.bitLength() + 1 ;
-		Random rnd = new Random();
-		randomPrime = BigInteger.probablePrime(len, rnd);
 		BigInteger[] coff = new BigInteger[k-1];
 		for(int i = 0; i < k-1; i++){
 			// the coefficient should be smaller than the prime we used.
@@ -101,8 +112,8 @@ public class ShamirSecret{
 
 	public static void main(String[] args) throws Exception {
 	    int length = 150;
-		ShamirSecret ss = new ShamirSecret(3,10);
-		String contents = new String(Files.readAllBytes(Paths.get("/usr/share/dict/words"))).substring(0, length); 
+		ShamirSecret ss = new ShamirSecret(3, 10, null);
+		String contents = "test string"; // new String(Files.readAllBytes(Paths.get("/usr/share/dict/words"))).substring(0, length); 
 		String[] parts  = ss.split(contents);
 		String[] tmp    = new String[] {parts[5], parts[3], parts[7]};
 		int[] which     = new int[] {5,3,7};

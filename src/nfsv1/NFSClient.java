@@ -15,7 +15,7 @@ import javax.xml.bind.DatatypeConverter;
 
 import java.nio.file.*;
 
-public class NFSClient {
+public class NFSClient implements NFSClientInterface {
     private final int uid;
     private final int gid;
     private final String username;
@@ -25,6 +25,7 @@ public class NFSClient {
     private final Cipher decCipher;
     private final SecretKeySpec key;
     private final IvParameterSpec iv;
+    private static final int CHUNKSIZE = 1 << 10;
     public boolean useAES;
   
     public NFSClient(String host, String mntPoint, int uid, int gid, String username, byte[] key) throws Exception {
@@ -102,8 +103,8 @@ public class NFSClient {
         String [] parts = path.split("/");
         fhandle dir = root;
         for (int i = 1; i<parts.length; i++) {
-            dir = lookup(dir, parts[i]);
             if (dir == null) return null;
+            dir = lookup(dir, parts[i]);
         }
         return dir;
     }
@@ -318,37 +319,61 @@ public class NFSClient {
 //    readres
 //    NFSPROC_READ(readargs) = 6;
 
-    public synchronized String readFile(fhandle file) throws IOException, OncRpcException {
-        readargs args = new readargs();
-        args.file = file;
-        args.offset = 0;
-        args.count = getAttr(file).size;
-        readres out = nfs.NFSPROC_READ_2(args);
-        if (out.status != stat.NFS_OK) {
-            errorMessage(out.status);
-            return "";
-        }
+    public synchronized byte[] readFile(fhandle file) throws IOException, OncRpcException {
+    	fattr attributes = getAttr(file);
+    	ByteArrayOutputStream chunks = new ByteArrayOutputStream();
+    	int numChunks = getAttr(file).size / CHUNKSIZE + 1;
+    	
+    	for (int i=0; i < numChunks; ++i) {
+	        readargs args = new readargs();
+	        args.file = file;
+	        args.offset = i * CHUNKSIZE;
+	        args.count = CHUNKSIZE;
+	        readres out = nfs.NFSPROC_READ_2(args);
+	        if (out.status != stat.NFS_OK) {
+	            errorMessage(out.status);
+	            return null;
+	        }
+	        chunks.write(out.read.data.value);
+    	}
+    	byte[] contents = chunks.toByteArray();
+    	
         if (useAES) {
             try {
-                return new String(decCipher.doFinal(out.read.data.value));
+                return decCipher.doFinal(contents);
             } catch (Exception ex) {
                 System.out.println("Tough luck: Decryption failed, your files might be lost forever!");
                 System.exit(1);
             }
         }
-        return new String(out.read.data.value);
+        return contents;
     }
     
     public synchronized String readFile(fhandle folder, filename filename) throws IOException, OncRpcException {;
-        return readFile(lookup(folder, filename));
+        return new String(readFile(lookup(folder, filename)));
     }
     
     public synchronized String readFile(fhandle folder, String filename) throws IOException, OncRpcException {
-        return readFile(folder, new filename(filename));
+        return new String(readFile(folder, new filename(filename)));
     }
     
     public synchronized String readFile(String path) throws IOException, OncRpcException {
+        return new String(readFile(lookup(path)));
+    }
+    
+    public synchronized byte[] rawReadFile(String path) throws IOException, OncRpcException {
         return readFile(lookup(path));
+    }
+   
+    public static List<byte[]> chunk(byte[] contents, int chunksize) {
+    	List<byte[]> chunks = new ArrayList<byte[]>();
+    	int numChunks = (contents.length / chunksize) + 1;
+    	for (int i=0; i < numChunks; ++i) {
+    		int from = i * chunksize;
+    		int to   = Integer.min((i+1) * chunksize, contents.length); 
+    		chunks.add(Arrays.copyOfRange(contents, from, to));
+    	}
+    	return chunks;
     }
     
 //  writeFile  
@@ -362,6 +387,10 @@ public class NFSClient {
 //    attrstat
 //    NFSPROC_WRITE(writeargs) = 8;
     public synchronized boolean writeFile(fhandle file, byte [] contents) throws IOException, OncRpcException {
+        if (file == null) {
+            System.err.println("Cannot write to null fhandle");
+            return false;
+        }
         if (useAES) {
             try {
                 contents = encCipher.doFinal(contents);
@@ -370,15 +399,23 @@ public class NFSClient {
                 System.exit(1);
             }
         }
-        writeargs args = new writeargs();
-        args.file = file;
-        args.offset = 0;
-        args.data = new nfsdata(contents);
-        attrstat out = nfs.NFSPROC_WRITE_2(args);
-        if (out.status != stat.NFS_OK) {
-            errorMessage(out.status);
-        } 
-        return out.status == stat.NFS_OK;
+        List<byte[]> chunks = chunk(contents, CHUNKSIZE);
+        for (int i=0; i < chunks.size(); ++i) {
+	        writeargs args = new writeargs();
+	        args.file = file;
+	        args.offset = i * CHUNKSIZE;
+	        args.data = new nfsdata(chunks.get(i));
+	        attrstat out = nfs.NFSPROC_WRITE_2(args);
+	        if (out.status != stat.NFS_OK) {
+	            errorMessage(out.status);
+	            return false;
+	        }
+        }
+        return true;
+    }
+    
+    public synchronized boolean writeFile(fhandle folder, filename filename, byte[] contents) throws IOException, OncRpcException {
+        return writeFile(lookup(folder,filename), contents);
     }
     
     public synchronized boolean writeFile(fhandle folder, filename filename, String contents) throws IOException, OncRpcException {
@@ -394,6 +431,10 @@ public class NFSClient {
         return writeFile(p.dir, p.name, contents);
     }
     
+    public synchronized boolean rawWriteFile(String path, byte[] contents) throws IOException, OncRpcException {
+        Parts p = lookup_parts(path);
+        return writeFile(p.dir, p.name, contents);
+    }
     
     
 //  removeDir  NFSPROC_RMDIR_2

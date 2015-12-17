@@ -6,30 +6,24 @@ import static java.nio.file.LinkOption.*;
 import static java.nio.file.StandardWatchEventKinds.*;
 import java.util.HashMap;
 import java.util.Scanner;
+import java.util.List;
 import net.sourceforge.argparse4j.ArgumentParsers;
+import net.sourceforge.argparse4j.impl.Arguments;
 import net.sourceforge.argparse4j.inf.*;
 
 import org.acplt.oncrpc.OncRpcException;
-import nfsv1.NFSClient;
+import nfsv1.*;
 
-public class Watcher{
-	private final String host;
-	private final Path remoteDir;
+public class Watcher {
 	private final Path localDir;
 	private final WatchService watcher;
 	private final HashMap<WatchKey, Path> keys;
-	private final boolean recursive;
-	private final String username;
-	private final NFSClient nfsc;
+	private final NFSClientInterface nfsc;
 
 	public Watcher(String host, String remoteDir, String localDir, boolean recursive, int uid, int gid, String username, String key) throws Exception {
-		this.host      = host;
-		this.remoteDir = Paths.get(remoteDir);
 		this.localDir  = Paths.get(localDir);
 		this.watcher   = FileSystems.getDefault().newWatchService();
 		this.keys      = new HashMap<WatchKey,Path>();
-		this.recursive = recursive;
-		this.username  = username;
 		byte[] keyData = NFSClient.readOrGenerateKey(key);
 		
 		if (recursive) {
@@ -39,6 +33,20 @@ public class Watcher{
 		}
 		
 		nfsc = new NFSClient(host, remoteDir, uid, gid, username, keyData);
+	}
+	
+	public Watcher(int[] sssNos, String[] hosts, String[] remoteDirs, String localDir, boolean recursive, int uid, int gid, String username, String prime) throws Exception {
+	    this.localDir  = Paths.get(localDir);
+        this.watcher   = FileSystems.getDefault().newWatchService();
+        this.keys      = new HashMap<WatchKey,Path>();
+        
+        if (recursive) {
+            registerAll(this.localDir);
+        } else {
+            register(this.localDir);
+        }
+        
+        nfsc = new NFSMultiClient(sssNos, hosts, remoteDirs, uid, gid, username, prime);
 	}
 
     /**
@@ -108,9 +116,18 @@ public class Watcher{
                                 } catch (Exception e) {}
                             });
                         } else if (Files.isRegularFile(localPath)) {
-                            nfsc.createFile(remotePath);
+                            if (!nfsc.createFile(remotePath)) {
+                                System.err.format("Could not create remote file: %s\n", remotePath);
+                                break;
+                            }
                             String contents = readFile(localPath);
-                            nfsc.writeFile(remotePath, contents);
+                            if (contents.length() > 0) {
+                                if (!nfsc.writeFile(remotePath, contents)) {
+                                    System.err.format("Could not write to remote file: %s\n", remotePath);
+                                }
+                                System.out.format("Wrote %s\n", localPath);
+                                break;
+                            }
                         }
                         break;
                     case "ENTRY_DELETE":
@@ -120,8 +137,10 @@ public class Watcher{
                         if (Files.isDirectory(localPath)) {
                             nfsc.makeDirs(remotePath);
                         } else if (Files.isRegularFile(localPath)) {
+                            nfsc.createFile(remotePath);
                             String contents = readFile(localPath);
                             nfsc.writeFile(remotePath, contents);
+                            System.out.format("Wrote %s\n", localPath);
                         }
                         break;
                     case "OVERFLOW":
@@ -160,6 +179,13 @@ public class Watcher{
 	                                            .setDefault("test");
 	    parser.addArgument("-k", "--key").help("This is the AES key: generates key to that filename, if it doesn't exist yet")
 	                                     .setDefault("KEY");
+	    parser.addArgument("-p", "--sssprime").help("These are the Shamir's Secret Sharing prime number filename; writes generated prime, if it doesn't exist yet")
+        									  .setDefault("PRIME");
+	    parser.addArgument("-s", "--ssshost").help("These are the Shamir's Secret Sharing host specs (hostname:remoteDir)")
+	                                         .action(Arguments.append());
+	    parser.addArgument("-u", "--uid").help("The user ID").setDefault(NFSClient.getUID()).type(Integer.class);
+        parser.addArgument("-g", "--gid").help("The group ID").setDefault(NFSClient.getGID()).type(Integer.class);
+        parser.addArgument("-n", "--username").help("The username").setDefault(System.getProperty("user.name"));
 	    Namespace ns = null;
 	    try {
 	        ns = parser.parseArgs(args);
@@ -168,15 +194,45 @@ public class Watcher{
 	        System.exit(1);
 	    }
         // parse arguments
-        String host      = ns.getString("host");
-        String remoteDir = ns.getString("remote");
-        String localDir  = ns.getString("local");
-        String key       = ns.getString("key");
-        int uid          = NFSClient.getUID();
-        int gid          = NFSClient.getGID();
-        String username  = System.getProperty("user.name");
-        
-        new Watcher(host, remoteDir, localDir, true, uid, gid, username, key).processEvents();
-    
-    }
+        String host         = ns.getString("host");
+        String remoteDir    = ns.getString("remote");
+        String localDir     = ns.getString("local");
+        String key          = ns.getString("key");
+        String prime        = ns.getString("sssprime");
+        int uid             = ns.getInt("uid");
+        int gid             = ns.getInt("gid");
+        String username     = ns.getString("username");
+        List<String> sssHostSpecs = ns.<String>getList("ssshost");
+        int[]    sssNos     = null;
+        String[] sssHosts   = null;
+        String[] sssRemotes = null;
+        if (sssHostSpecs != null) {
+            sssNos     = new int[sssHostSpecs.size()];
+            sssHosts   = new String[sssHostSpecs.size()];
+            sssRemotes = new String[sssHostSpecs.size()];
+            for (int i=0; i<sssHostSpecs.size();i++) {
+                String hostSpec = sssHostSpecs.get(i);
+                if (!hostSpec.contains(":")) {
+                    System.err.format("Bad host spec: %s\nMust be of the form 'hostname:remoteDir'\nfor example: 'localhost:/exports'\n", hostSpec);
+                    System.exit(1);
+                } else {
+                    sssNos[i]     = i;
+                    sssHosts[i]   = hostSpec.split(":", 2)[0];
+                    sssRemotes[i] = hostSpec.split(":", 2)[1];
+                }
+            }
+            System.out.println(String.join("\n", new String[] {
+                "","Using Shamir's Secret Sharing with multiple hosts.",
+                "--host and --remote arguments are ignored!",
+                "Using the following hosts (please remember their host number, necessary for reconstruction),",
+                "any three suffice to reconstruct the secret:"
+                }));
+            for (int i=0; i<sssHosts.length; i++) {
+                System.out.format("No: %d, host: %s, remote: %s\n", sssNos[i], sssHosts[i], sssRemotes[i]);
+            }
+            new Watcher(sssNos, sssHosts, sssRemotes, localDir, true, uid, gid, username, prime).processEvents();
+        } else {
+            new Watcher(host, remoteDir, localDir, true, uid, gid, username, key).processEvents();
+        }    
+	}
 };
