@@ -25,6 +25,7 @@ public class NFSClient implements NFSClientInterface {
     private final Cipher decCipher;
     private final SecretKeySpec key;
     private final IvParameterSpec iv;
+    private static final int CHUNKSIZE = 1 << 12;
     public boolean useAES;
   
     public NFSClient(String host, String mntPoint, int uid, int gid, String username, byte[] key) throws Exception {
@@ -319,24 +320,33 @@ public class NFSClient implements NFSClientInterface {
 //    NFSPROC_READ(readargs) = 6;
 
     public synchronized byte[] readFile(fhandle file) throws IOException, OncRpcException {
-        readargs args = new readargs();
-        args.file = file;
-        args.offset = 0;
-        args.count = getAttr(file).size;
-        readres out = nfs.NFSPROC_READ_2(args);
-        if (out.status != stat.NFS_OK) {
-            errorMessage(out.status);
-            return null;
-        }
+    	fattr attributes = getAttr(file);
+    	ByteArrayOutputStream chunks = new ByteArrayOutputStream();
+    	int numChunks = getAttr(file).size / CHUNKSIZE + 1;
+    	
+    	for (int i=0; i < numChunks; ++i) {
+	        readargs args = new readargs();
+	        args.file = file;
+	        args.offset = i * CHUNKSIZE;
+	        args.count = CHUNKSIZE;
+	        readres out = nfs.NFSPROC_READ_2(args);
+	        if (out.status != stat.NFS_OK) {
+	            errorMessage(out.status);
+	            return null;
+	        }
+	        chunks.write(out.read.data.value);
+    	}
+    	byte[] contents = chunks.toByteArray();
+    	
         if (useAES) {
             try {
-                return decCipher.doFinal(out.read.data.value);
+                return decCipher.doFinal(contents);
             } catch (Exception ex) {
                 System.out.println("Tough luck: Decryption failed, your files might be lost forever!");
                 System.exit(1);
             }
         }
-        return out.read.data.value;
+        return contents;
     }
     
     public synchronized String readFile(fhandle folder, filename filename) throws IOException, OncRpcException {;
@@ -354,7 +364,7 @@ public class NFSClient implements NFSClientInterface {
     public synchronized byte[] rawReadFile(String path) throws IOException, OncRpcException {
         return readFile(lookup(path));
     }
-    
+   
     public static List<byte[]> chunk(byte[] contents, int chunksize) {
     	List<byte[]> chunks = new ArrayList<byte[]>();
     	int numChunks = (contents.length / chunksize) + 1;
@@ -385,12 +395,11 @@ public class NFSClient implements NFSClientInterface {
                 System.exit(1);
             }
         }
-        int chunksize=1 << 12;
-        List<byte[]> chunks = chunk(contents, chunksize);
+        List<byte[]> chunks = chunk(contents, CHUNKSIZE);
         for (int i=0; i < chunks.size(); ++i) {
 	        writeargs args = new writeargs();
 	        args.file = file;
-	        args.offset = i * chunksize;
+	        args.offset = i * CHUNKSIZE;
 	        args.data = new nfsdata(chunks.get(i));
 	        attrstat out = nfs.NFSPROC_WRITE_2(args);
 	        if (out.status != stat.NFS_OK) {
