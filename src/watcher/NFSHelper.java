@@ -90,7 +90,7 @@ public class NFSHelper {
         int gid           = NFSClient.getGID();
         String username   = System.getProperty("user.name");
         String key        = ns.getString("key");
-        String prime      = ns.getString("prime");
+        String prime      = ns.getString("sssprime");
         
         List<String> sssHostSpecs = ns.<String>getList("ssshost");
         int[]    sssNos     = null;

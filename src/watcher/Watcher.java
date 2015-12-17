@@ -185,7 +185,7 @@ public class Watcher {
         String remoteDir          = ns.getString("remote");
         String localDir           = ns.getString("local");
         String key                = ns.getString("key");
-        String prime              = ns.getString("prime");
+        String prime              = ns.getString("sssprime");
         int uid                   = NFSClient.getUID();
         int gid                   = NFSClient.getGID();
         String username           = System.getProperty("user.name");
